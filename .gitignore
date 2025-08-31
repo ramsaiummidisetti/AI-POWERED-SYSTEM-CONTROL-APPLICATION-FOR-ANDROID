@@ -1,0 +1,43 @@
+# Android / Java
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+
+# Gradle
+.gradle/
+build/
+*/build/
+!gradle-wrapper.jar
+
+# Local config / IDE
+/local.properties
+/.idea/
+/.vscode/
+*.iml
+
+# Android Studio / Kotlin caches
+.cxx/
+captures/
+
+# Keystore and secrets - DO NOT commit
+*.jks
+*.keystore
+*.properties
+.env
+
+# Log files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NDK
+obj/
+
+# Git LFS placeholder - keep if you use LFS
+.gitattributes
