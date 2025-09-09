@@ -1,148 +1,119 @@
-Got it Bittu 👍
-Here’s your **Phase 1 – Month 2 – Week 1 README.md** that matches your roadmap.
+Got it 👍. I’ll create a **README.md** for **Phase 1 → Month 2 → Week 1** based strictly on your uploaded PDF (`week1month2.pdf`).
+
+Here’s the structured README you can upload to GitHub:
 
 ---
 
-# 📌 Phase 1 – Month 2 – Week 1
+# 📌 Phase 1 - Month 2 - Week 1
 
-This week focused on **building smarter alerts and basic AI-driven logic** into the app.
-We moved beyond just UI and navigation (Month 1) and started making the app **aware of system status**.
+## ✅ Overview
+
+This week focuses on **basic UI setup, navigation between activities, and foundational features** for the AI-Powered System Control App.
+We implemented **dark/light theme toggling, input handling, navigation to a second activity, and permission requests**.
 
 ---
 
-## 📂 Features Implemented
+## 🛠️ Features Implemented
 
-### 1. 🔔 **Notification Channel Setup**
+### 1. **Main Activity UI Setup**
 
-* Created `NotificationHelper` utility to:
+* Added a **welcome message** (`TextView`).
+* Added **input field** (`EditText`) for user name.
+* Added **buttons**:
 
-  * Define a **notification channel** (Android 8+ requirement).
-  * Display simple notifications.
+  * `themeToggleButton` → Switch between Dark/Light mode.
+  * `btn_submit` → Submit input and navigate to second activity.
+  * `btn_voice` → Placeholder for voice feature.
+  * `permissionButton` → Trigger runtime permissions.
+
+---
+
+### 2. **Theme Toggle (Dark/Light Mode)**
+
+* Boolean `isDark` tracks the current mode.
+* Toast message shows the switched mode.
 
 ```java
-NotificationHelper.createChannel(this);
-NotificationHelper.showNotification(
-    this,
-    1001,
-    "Test Notification",
-    "This is a simple notification"
-);
+themeToggleButton.setOnClickListener(v -> {
+    isDark = !isDark;
+    String mode = isDark ? "Dark Mode" : "Light Mode";
+    Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
+});
 ```
 
 ---
 
-### 2. 🔋 **Battery Monitoring**
+### 3. **Navigation to Second Activity**
 
-* Implemented `BatteryReceiver` (BroadcastReceiver).
-* Listens for **battery status events** (e.g., low battery).
-* Sends notifications when power is low.
+* On clicking submit, user’s name is passed to `SecondActivity`.
 
 ```java
-public class BatteryReceiver extends BroadcastReceiver {
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-        if (level <= 20) {
-            NotificationHelper.showNotification(
-                context,
-                2001,
-                "Low Battery",
-                "Battery is at " + level + "%"
-            );
+Intent intent = new Intent(MainActivity.this, SecondActivity.class);
+intent.putExtra("USER_NAME", userName);
+startActivity(intent);
+```
+
+---
+
+### 4. **Runtime Permissions**
+
+* Implemented with `ActivityResultLauncher`.
+* Requests **Camera** and **Storage** permissions.
+
+```java
+permissionLauncher = registerForActivityResult(
+    new ActivityResultContracts.RequestMultiplePermissions(),
+    result -> {
+        Boolean cameraGranted = result.get(Manifest.permission.CAMERA);
+        Boolean storageGranted = result.get(Manifest.permission.READ_EXTERNAL_STORAGE);
+        if (cameraGranted && storageGranted) {
+            Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show();
         }
-    }
-}
+    });
 ```
 
-Registered using `AlertManager`:
+---
+
+### 5. **Voice Button (Placeholder)**
+
+* Shows a Toast for now:
 
 ```java
-alertManager = new AlertManager(this);
-alertManager.register();
+voiceButton.setOnClickListener(v -> {
+    Toast.makeText(this, "Voice command feature coming soon", Toast.LENGTH_SHORT).show();
+});
 ```
 
 ---
 
-### 3. 💾 **Storage Monitoring**
+## 📂 Code Structure
 
-* Added logic to check free storage.
-* If storage < 500MB → app suggests clearing cache/large files.
-
-```java
-File path = context.getFilesDir();
-long freeMB = path.getFreeSpace() / (1024 * 1024);
-if (freeMB < 500) {
-    NotificationHelper.showNotification(
-        context,
-        2002,
-        "Low Storage",
-        "Only " + freeMB + "MB free!"
-    );
-}
+```
+app/src/main/java/com/example/
+│── MainActivity.java     // Handles UI, theme toggle, navigation, permissions
+│── SecondActivity.java   // Displays user input
 ```
 
 ---
 
-### 4. 🧠 **Smart Suggestions (AI-like logic)**
+## 📖 Learning Outcomes
 
-* Created `SmartSuggestions` utility.
-* Suggests **preventive actions** before problems occur:
-
-  * Battery usage patterns.
-  * Storage usage.
-* For now, rule-based (not ML), but ready for extension.
-
-```java
-SmartSuggestions.checkStorageAndSuggest(this);
-SmartSuggestions.checkBatteryAndSuggest(this);
-```
+* Set up UI with **EditText, TextView, Buttons**.
+* Implemented **Dark/Light theme toggle**.
+* Implemented **navigation between activities**.
+* Added **runtime permissions** handling.
+* Prepared placeholder for **future voice commands**.
 
 ---
 
-### 5. 📝 **Event Logging (JSON-based)**
+## 🚀 Next Steps (Week 2 Preview)
 
-* Implemented `LogEvent` + `LogManager`.
-* Each event (battery/storage/preference change) is stored in **`app_logs.json`** inside app’s private storage.
-
-Example log:
-
-```json
-{
-  "event": "battery_ok",
-  "timestamp": 1757417717873,
-  "severity": "info",
-  "source": "system",
-  "meta": {
-    "batteryLevel": 100
-  }
-}
-```
+* Add **Notification system**.
+* Implement **AlertManager for system alerts**.
+* Start **logging events** into JSON.
 
 ---
 
-## 🔑 Key Learnings
-
-1. How to use **BroadcastReceivers** for system events.
-2. Creating **Notification Channels** for modern Android.
-3. Monitoring **battery & storage health**.
-4. Adding **intelligent suggestions** using simple rules.
-5. Persisting logs in **structured JSON format**.
-
----
-
-## ✅ Outcome
-
-By the end of **Phase 1 – Month 2 – Week 1**, the app can:
-
-* Show **system notifications** for battery/storage alerts.
-* Give **smart suggestions** to the user.
-* Maintain a **JSON log file** for debugging/tracking.
-
----
-
-👉 This sets the stage for **Week 2**, where we enhanced notifications with **actions (like Snooze)** and polished the alert system.
-
----
-
-Do you want me to also prepare the **folder + file naming convention** (like `Phase1/Month2/Week1/README.md`) so your GitHub looks structured phase → month → week?
-
+Do you want me to also prepare this in a **proper markdown file (`README.md`) with code formatting** so you can directly upload to GitHub, like I did for Week 2?
