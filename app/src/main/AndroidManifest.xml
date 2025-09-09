@@ -1,41 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-<uses-feature android:name="android.hardware.camera" android:required="false" />
-  <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-<uses-permission android:name="android.permission.CAMERA"/>
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-<!-- Usage access is special; declared for lint visibility only -->
-<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-    tools:ignore="ProtectedPermissions"/>
-   <application
-    android:allowBackup="true"
-    android:icon="@mipmap/ic_launcher_4"
-    android:supportsRtl="true"
-    android:theme="@style/Theme.MyAndroidApp"
-    android:label="AI COMMANDER">
-    <!-- activities here -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-        <activity android:name=".MainActivity" android:exported="true">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN"/>
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-            </activity>
-                <!-- Add this new activity declaration -->
-            <activity android:name=".SecondActivity"
-    android:parentActivityName=".MainActivity" />
-        <receiver android:name=".BatteryReceiver"   
-                  android:exported="true">
-    <intent-filter>
-        <action android:name="android.intent.action.BATTERY_CHANGED"/>
-    </intent-filter>
-    </receiver>
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Declare that camera is optional -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
 
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_4"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyAndroidApp">
+
+        <!-- Main Activity MUST specify android:exported -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Second Activity -->
+        <activity android:name=".SecondActivity" android:exported="false" />
+
+        <!-- Receivers -->
+        <receiver android:name=".utils.SnoozeActionReceiver" android:exported="false" />
+        <receiver android:name=".utils.ReminderReceiver" android:exported="false" />
 
     </application>
-
-
 </manifest>

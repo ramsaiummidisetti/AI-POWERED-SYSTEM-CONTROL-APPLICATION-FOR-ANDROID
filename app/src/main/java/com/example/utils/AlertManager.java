@@ -4,6 +4,7 @@ import android.content.*;
 import com.example.MainActivity;
 import org.json.JSONObject;
 
+import androidx.appcompat.app.AlertDialog;
 public class AlertManager {
     private Context ctx;
     private BroadcastReceiver batteryReceiver;
@@ -24,7 +25,8 @@ public class AlertManager {
             public void onReceive(Context context, Intent intent) {
                 LogUtils.writeLogAsync(ctx, new LogEvent("battery_low", "warning", "system", null));
                 Intent open = new Intent(ctx, MainActivity.class);
-                NotificationHelper.sendBasicNotification(ctx, 1001, "Battery Low", "Please charge your device.", open);
+               Intent batteryIntent = new Intent(ctx, MainActivity.class); // or appropriate activity
+                NotificationHelper.sendBasicNotification(ctx, 1001, "Battery Low", "Please charge your device.", batteryIntent);
             }
         };
 
@@ -67,4 +69,14 @@ public class AlertManager {
         } catch (Exception ignored) {
         }
     }
+     public static void showBatteryAlert(Context ctx) {
+        Intent batteryIntent = new Intent(ctx, MainActivity.class);
+        NotificationHelper.sendBasicNotification(ctx, 1001, "Battery Low", "Please charge your device.", batteryIntent);
+    }
+    
+    public static void showStorageAlert(Context ctx) {
+        Intent storageIntent = new Intent(ctx, MainActivity.class);
+        NotificationHelper.sendBasicNotification(ctx, 1002, "Storage Low", "Your device storage is running low.", storageIntent);
+    }
+
 }

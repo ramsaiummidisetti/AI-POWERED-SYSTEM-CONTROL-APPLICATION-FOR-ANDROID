@@ -1,92 +1,110 @@
 package com.example.utils;
 
-import android.app.*;
-import android.content.*;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
-import org.json.JSONObject;
+import androidx.core.app.NotificationManagerCompat;
+import com.example.MainActivity;
 
 public class NotificationHelper {
-    public static final String CHANNEL_ID = "smart_alerts";
-    private static final int CHANNEL_IMPORTANCE = NotificationManager.IMPORTANCE_HIGH;
+    private static final String CHANNEL_ID = "my_app_channel";
 
-    public static void createChannel(Context ctx) {
+    // Method for basic notifications
+    public static void sendBasicNotification(Context context, int id, String title, String message, Intent intent) {
+        // Check if we have notification permission
+        if (!hasNotificationPermission(context)) {
+            // You might want to request permission here or log a warning
+            return;
+        }
+        
+        createNotificationChannel(context);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true);
+        
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+        
+        // Add permission check before calling notify()
+        if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) 
+            == PackageManager.PERMISSION_GRANTED) {
+            notificationManager.notify(id, builder.build());
+        }
+    }
+
+    // Method for action notifications (with buttons)
+    public static void sendActionNotification(Context context, int id, String title, String message,
+                                            Intent mainIntent, Intent actionIntent) {
+        // Check if we have notification permission
+        if (!hasNotificationPermission(context)) {
+            return;
+        }
+        
+        createNotificationChannel(context);
+        
+        PendingIntent mainPendingIntent = PendingIntent.getActivity(context, 0, mainIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        PendingIntent actionPendingIntent = PendingIntent.getActivity(context, 1, actionIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(mainPendingIntent)
+            .addAction(android.R.drawable.ic_menu_view, "Action", actionPendingIntent)
+            .setAutoCancel(true);
+        
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+        
+        // Add permission check before calling notify()
+        if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) 
+            == PackageManager.PERMISSION_GRANTED) {
+            notificationManager.notify(id, builder.build());
+        }
+    }
+
+    // Check if we have notification permission
+    private static boolean hasNotificationPermission(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return ActivityCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) 
+                == PackageManager.PERMISSION_GRANTED;
+        }
+        // For versions below Android 13, no runtime permission is needed
+        return true;
+    }
+
+    private static void createNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Smart Alerts", CHANNEL_IMPORTANCE);
-            channel.setDescription("Alerts from AI System Control App");
-            nm.createNotificationChannel(channel);
+            CharSequence name = "My App Channel";
+            String description = "Channel for My App notifications";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            
+            NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
         }
     }
-
-    public static void sendBasicNotification(Context ctx, int id, String title, String text, Intent openIntent) {
-        PendingIntent pi = PendingIntent.getActivity(
-                ctx, id, openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT
-                        | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0));
-
-        NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setAutoCancel(true)
-                .setContentIntent(pi)
-                .setPriority(NotificationCompat.PRIORITY_HIGH);
-
-        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.notify(id, b.build());
-
-        // Log notification event
-        try {
-            JSONObject meta = new JSONObject();
-            meta.put("alertType", "battery");
-            meta.put("level", 15);
-
-            LogEvent notificationSent = new LogEvent("notification_sent", "warning", "system", meta);
-            LogManager logManager = new LogManager(ctx);
-            logManager.logEvent(notificationSent);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Log prediction event (if applicable)
-        try {
-            JSONObject metaPrediction = new JSONObject();
-            metaPrediction.put("prediction", "battery_low");
-            metaPrediction.put("predictedLevel", 12);
-
-            LogEvent prediction = new LogEvent("prediction_made", "warning", "app", metaPrediction);
-            LogManager logManager = new LogManager(ctx);
-            logManager.logEvent(prediction);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    
+    // Create channel method for external use
+    public static void createChannel(Context context) {
+        createNotificationChannel(context);
     }
-
-    public static void sendActionNotification(Context ctx, int id,
-            String title, String text,
-            Intent openIntent, Intent actionIntent) {
-        PendingIntent openPi = PendingIntent.getActivity(
-                ctx, id, openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT |
-                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0));
-
-        PendingIntent actionPi = PendingIntent.getBroadcast(
-                ctx, id + 1000, actionIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT |
-                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0));
-
-        NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setAutoCancel(true)
-                .setContentIntent(openPi)
-                .addAction(android.R.drawable.ic_media_pause, "Snooze", actionPi) // 👈 Snooze button
-                .setPriority(NotificationCompat.PRIORITY_HIGH);
-
-        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.notify(id, b.build());
-    }
-
 }

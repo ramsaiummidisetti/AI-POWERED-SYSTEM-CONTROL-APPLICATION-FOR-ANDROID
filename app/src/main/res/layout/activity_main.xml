@@ -3,65 +3,41 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
-
+    android:padding="16dp">
     <TextView
         android:id="@+id/welcomeText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Welcome to AI Commander"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="20dp" />
-
-    <!-- <EditText
-        android:id="@+id/et_command"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Type your command here..."
-        android:inputType="text"
-        android:layout_marginBottom="16dp" /> -->
-        <EditText
+        android:text="Welcome"
+        android:textSize="24sp" />
+    <EditText
         android:id="@+id/et_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Type your command here..."
-        android:inputType="text"
-        android:layout_marginBottom="16dp" />
-
-    <Button
-
-          android:backgroundTint="@color/purple_500"
-    android:textColor="@color/white"
-        android:id="@+id/btn_submit"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Submit Command"
-        android:layout_marginBottom="12dp" />
-
-    <Button
-      android:backgroundTint="@color/purple_500"
-    android:textColor="@color/white"
-        android:id="@+id/btn_voice"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🎙 Speak Command"
-        android:layout_marginBottom="20dp" />
-
-    <Button
-      android:backgroundTint="@color/purple_500"
-    android:textColor="@color/white"
+        android:hint="Enter your name" />
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/themeToggleButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Toggle Theme" />
-        <Button
-    android:id="@+id/permissionButton"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Request Permissions"
-    android:backgroundTint="@color/purple_500"
-    android:textColor="@color/white"
-    android:layout_marginBottom="12dp" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_submit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Submit" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_voice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Voice" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/permissionButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Request Permission" />
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/dashboardRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 </LinearLayout>
