@@ -1,5 +1,19 @@
 package com.example;
 
+import android.os.Build;
+import androidx.core.app.ActivityCompat;
+
+import org.json.JSONObject;
+
+import com.example.utils.LogEvent;
+
+import com.example.utils.LogManager;
+import com.example.utils.AlertManager;
+import com.example.utils.NotificationHelper;
+import com.example.utils.SmartSuggestions;
+
+import com.example.utils.SnoozeActionReceiver;
+
 import android.Manifest;
 import android.content.pm.PackageManager;
 import androidx.activity.result.ActivityResultLauncher;
@@ -21,10 +35,38 @@ public class MainActivity extends AppCompatActivity {
 
     private ActivityResultLauncher<String[]> permissionLauncher;
 
+    private AlertManager alertManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[] { Manifest.permission.POST_NOTIFICATIONS }, 1001);
+            }
+        }
+        // ✅ Setup notifications and alerts
+        NotificationHelper.createChannel(this);
+        alertManager = new AlertManager(this);
+
+        // Declare LogManager once
+        LogManager logManager = new LogManager(this);
+
+        JSONObject metaFile = new JSONObject();
+        try {
+            metaFile.put("fileName", "example.txt");
+            metaFile.put("fileSize", 1024);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        LogEvent fileDeleted = new LogEvent("file_deleted", "info", "app", metaFile);
+
+        logManager.logEvent(fileDeleted);
 
         TextView welcomeText = findViewById(R.id.welcomeText);
         // EditText commandInput = findViewById(R.id.et_command); //first
@@ -32,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
         Button themeToggleButton = findViewById(R.id.themeToggleButton);
         Button submitCommandButton = findViewById(R.id.btn_submit);
         Button voiceButton = findViewById(R.id.btn_voice);
-
+        Button permissionButton = findViewById(R.id.permissionButton);
         themeToggleButton.setOnClickListener(v -> {
             isDark = !isDark;
             String mode = isDark ? "Dark Mode" : "Light Mode";
@@ -47,20 +89,49 @@ public class MainActivity extends AppCompatActivity {
             if (!userName.isEmpty()) {
                 // Toast.makeText(this, "Command received: " + command,
                 // Toast.LENGTH_SHORT).show();//first
-                // Create an Intent to start SecondActivity
-                Intent intent = new Intent(MainActivity.this,
-                        SecondActivity.class);
+
+                Intent intent = new Intent(MainActivity.this, SecondActivity.class);
                 // Add the user's name as an extra to the Intent
                 intent.putExtra("USER_NAME", userName);
                 // Start the new activity
                 startActivity(intent);
+                NotificationHelper.sendActionNotification(
+                        this,
+                        3001,
+                        "Reminder",
+                        "This is a snooze test",
+                        new Intent(this, MainActivity.class),
+                        new Intent(this, SnoozeActionReceiver.class).putExtra("notification_id", 3001));
+
             } else {
                 Toast.makeText(this, "Please enter a command", Toast.LENGTH_SHORT).show();
             }
+          
         });
-
         voiceButton.setOnClickListener(v -> {
             Toast.makeText(this, "Voice command feature coming soon", Toast.LENGTH_SHORT).show();
+
+            // Log preference change event
+            try {
+                JSONObject metaPref = new JSONObject();
+                metaPref.put("key", "voice_enabled");
+                metaPref.put("value", true);
+
+                LogEvent prefChanged = new LogEvent("preference_changed", "info", "app", metaPref);
+                logManager.logEvent(prefChanged);
+            } catch (Exception e) {
+                e.printStackTrace();
+                try {
+                    JSONObject metaEx = new JSONObject();
+                    metaEx.put("exceptionType", e.getClass().getSimpleName());
+                    metaEx.put("message", e.getMessage());
+
+                    LogEvent exceptionEvent = new LogEvent("exception_occurred", "error", "app", metaEx);
+                    logManager.logEvent(exceptionEvent);
+                } catch (Exception logEx) {
+                    logEx.printStackTrace();
+                }
+            }
 
         });
         permissionLauncher = registerForActivityResult(
@@ -78,8 +149,6 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show();
                     }
                 });
-
-        Button permissionButton = findViewById(R.id.permissionButton);
         permissionButton.setOnClickListener(v -> requestPermissions());
     }
 
@@ -98,4 +167,21 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Permissions already granted", Toast.LENGTH_SHORT).show();
         }
     }
+
+    // ✅ Register / unregister alert receivers
+    @Override
+    protected void onStart() {
+        super.onStart();
+        alertManager.register();
+          // 🔎 Smart suggestions
+            SmartSuggestions.checkStorageAndSuggest(this);
+            SmartSuggestions.checkBatteryAndSuggest(this);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        alertManager.unregister();
+    }
+
 }
