@@ -1,6 +1,6 @@
-Got it 👍. I’ll create a **README.md** for **Phase 1 → Month 2 → Week 1** based strictly on your uploaded PDF (`week1month2.pdf`).
+Got it Bittu 👍 You want me to extend the **Phase 1 → Month 2 → Week 1 README** with a **Run & Test section** that explains how to test the app.
 
-Here’s the structured README you can upload to GitHub:
+Here’s the improved **Week 1 README** with **Running Steps** included:
 
 ---
 
@@ -8,30 +8,28 @@ Here’s the structured README you can upload to GitHub:
 
 ## ✅ Overview
 
-This week focuses on **basic UI setup, navigation between activities, and foundational features** for the AI-Powered System Control App.
-We implemented **dark/light theme toggling, input handling, navigation to a second activity, and permission requests**.
+This week sets up the foundation of the app with:
+
+* Basic **UI elements** (input, buttons, toggle).
+* **Theme switching** (Dark/Light).
+* **Navigation** from `MainActivity` → `SecondActivity`.
+* **Permissions handling** (Camera & Storage).
 
 ---
 
 ## 🛠️ Features Implemented
 
-### 1. **Main Activity UI Setup**
+### 1. **MainActivity UI**
 
-* Added a **welcome message** (`TextView`).
-* Added **input field** (`EditText`) for user name.
-* Added **buttons**:
-
-  * `themeToggleButton` → Switch between Dark/Light mode.
-  * `btn_submit` → Submit input and navigate to second activity.
-  * `btn_voice` → Placeholder for voice feature.
-  * `permissionButton` → Trigger runtime permissions.
+* `EditText` → User enters their name.
+* `Button` → Submit command.
+* `Button` → Voice feature placeholder.
+* `Button` → Toggle between Dark/Light mode.
+* `Button` → Request camera + storage permissions.
 
 ---
 
-### 2. **Theme Toggle (Dark/Light Mode)**
-
-* Boolean `isDark` tracks the current mode.
-* Toast message shows the switched mode.
+### 2. **Theme Toggle**
 
 ```java
 themeToggleButton.setOnClickListener(v -> {
@@ -43,9 +41,9 @@ themeToggleButton.setOnClickListener(v -> {
 
 ---
 
-### 3. **Navigation to Second Activity**
+### 3. **Navigation**
 
-* On clicking submit, user’s name is passed to `SecondActivity`.
+* On submit, navigate to `SecondActivity` with user’s name:
 
 ```java
 Intent intent = new Intent(MainActivity.this, SecondActivity.class);
@@ -55,36 +53,30 @@ startActivity(intent);
 
 ---
 
-### 4. **Runtime Permissions**
+### 4. **Permissions Handling**
 
-* Implemented with `ActivityResultLauncher`.
-* Requests **Camera** and **Storage** permissions.
+* Requests **Camera** + **Read Storage** permissions:
 
 ```java
 permissionLauncher = registerForActivityResult(
     new ActivityResultContracts.RequestMultiplePermissions(),
     result -> {
-        Boolean cameraGranted = result.get(Manifest.permission.CAMERA);
-        Boolean storageGranted = result.get(Manifest.permission.READ_EXTERNAL_STORAGE);
+        Boolean cameraGranted = result.getOrDefault(Manifest.permission.CAMERA, false);
+        Boolean storageGranted = result.getOrDefault(Manifest.permission.READ_EXTERNAL_STORAGE, false);
         if (cameraGranted && storageGranted) {
             Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show();
         }
-    });
+    }
+);
 ```
 
 ---
 
-### 5. **Voice Button (Placeholder)**
+### 5. **SecondActivity**
 
-* Shows a Toast for now:
-
-```java
-voiceButton.setOnClickListener(v -> {
-    Toast.makeText(this, "Voice command feature coming soon", Toast.LENGTH_SHORT).show();
-});
-```
+* Receives user name from `MainActivity` and displays it.
 
 ---
 
@@ -92,28 +84,61 @@ voiceButton.setOnClickListener(v -> {
 
 ```
 app/src/main/java/com/example/
-│── MainActivity.java     // Handles UI, theme toggle, navigation, permissions
-│── SecondActivity.java   // Displays user input
+│── MainActivity.java
+│── SecondActivity.java
 ```
+
+---
+
+## ▶️ How to Run & Test
+
+### **Step 1: Build & Install**
+
+Run in terminal:
+
+```sh
+./gradlew clean build
+./gradlew installDebug
+```
+
+Or directly run from **Android Studio → Run ▶**.
+
+---
+
+### **Step 2: Launch App**
+
+* App opens with **MainActivity**.
+
+---
+
+### **Step 3: Test Features**
+
+1. **Enter Name** in input box → Tap **Submit**
+   ✅ Navigates to `SecondActivity` and displays name.
+2. **Tap Theme Toggle**
+   ✅ Shows toast `"Switched to Dark Mode"` / `"Light Mode"`.
+3. **Tap Voice Button**
+   ✅ Shows `"Voice command feature coming soon"`.
+4. **Tap Permissions Button**
+   ✅ Prompts Camera + Storage permission request.
 
 ---
 
 ## 📖 Learning Outcomes
 
-* Set up UI with **EditText, TextView, Buttons**.
-* Implemented **Dark/Light theme toggle**.
-* Implemented **navigation between activities**.
-* Added **runtime permissions** handling.
-* Prepared placeholder for **future voice commands**.
+* Built **basic UI** with navigation.
+* Added **theme toggle**.
+* Implemented **permissions request flow**.
+* Prepared placeholder for **voice commands**.
 
 ---
 
 ## 🚀 Next Steps (Week 2 Preview)
 
-* Add **Notification system**.
-* Implement **AlertManager for system alerts**.
-* Start **logging events** into JSON.
+* Add **Notifications** with Snooze action.
+* Implement **AlertManager** for system events.
+* Setup **JSON-based logging**.
 
 ---
 
-Do you want me to also prepare this in a **proper markdown file (`README.md`) with code formatting** so you can directly upload to GitHub, like I did for Week 2?
+👉 Bittu, do you want me to **regenerate the Week 1 README.md file** with this new **Run & Test section** so you can directly upload to GitHub?
