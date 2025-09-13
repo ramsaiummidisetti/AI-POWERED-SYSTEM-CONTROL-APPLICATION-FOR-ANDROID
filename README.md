@@ -282,3 +282,13 @@ Week 3: Scheduling & App Usage Monitoring.
 
 This completes the Phase 1 → Month 2 roadmap 🚀.
 Next, we will extend features in Month 3 (Smart Suggestions, Optimization, etc.).
+
+📌 Learning Outcomes
+
+Week 1 → Intents, Activity Lifecycle, Runtime Permissions.
+
+Week 2 → Structured Logging, Notifications with Actions.
+
+Week 3 → Background Scheduling, UsageStats API.
+
+Week 4 → System Monitoring, RecyclerView Dashboard.
