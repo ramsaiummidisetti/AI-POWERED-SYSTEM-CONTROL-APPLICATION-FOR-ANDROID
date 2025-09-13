@@ -1,294 +1,139 @@
-📱 AI-Powered System Control App – Phase 1 (Month 2)
+# 📱 AI-Powered System Control App for Android  
+
+This project is a **Final Year B.Tech Application** built in **Java (Android SDK)**.  
+The goal is to create an **AI-Powered System Control App** that monitors and controls key system resources (Battery, Network, App Usage, Logs) and extends with **AI/ML integration** in later phases.  
+
+Phase 1 (1 Month – Weeks 1–4) covers **core Android concepts, notifications, dashboard UI, and real system data integration**.  
+
+---
+
+# 📅 Phase 1 Roadmap (1 Month)
+
+| Week | Focus Area | Key Features |
+|------|------------|--------------|
+| Week 1 | Intents, Navigation, Permissions | Second Activity, Explicit Intents, Runtime Permissions |
+| Week 2 | Notifications, Scheduling | NotificationHelper, AlarmManager, WorkManager, ReminderReceiver |
+| Week 3 | Dashboard UI | RecyclerView, Material Cards (App Usage, Battery, Network, Logs) |
+| Week 4 | Real Data Integration | UsageStatsManager, BatteryManager, ConnectivityManager, LogManager |
+
+---
+
+# 📖 Week-by-Week Breakdown  
+
+---
+
+## ✅ Week 1: Intents, Navigation, and Permissions  
+
+### 📂 Code Implemented
+- **SecondActivity.java**: Receives username from MainActivity.  
+- **MainActivity.java**:  
+  - Handles input (`EditText et_name`).  
+  - Explicit Intent → moves to `SecondActivity`.  
+  - Runtime permissions: Camera, Storage, Notifications.  
+
+### 🔎 What It Does
+- User enters their **name** and clicks **Submit** → navigates to `SecondActivity` and displays the name.  
+- Requests storage/camera/notification permissions on app startup.  
+
+### 🏆 Outcome
+- Learned how to use **explicit intents**.  
+- Understood **Activity lifecycle** (`onCreate → onStart → onResume → onPause → onStop → onDestroy`).  
+- Practiced **runtime permissions** in Android.  
+
+### 🧪 How to Test
+1. Run the app → it will ask for permissions. Grant them.  
+2. Enter your name and press **Submit**.  
+3. App switches to `SecondActivity` and shows a welcome message.  
+4. Deny permissions → app should handle gracefully with a Toast.  
+
+---
+
+## ✅ Week 2: Notifications and Scheduling  
+
+### 📂 Code Implemented
+- **NotificationHelper.java**  
+  - Creates notification channel.  
+  - Sends action notifications with button clicks.  
+- **ReminderReceiver.java**  
+  - Triggered via `AlarmManager` for scheduled reminders.  
+- **WorkManager** integration for background sync tasks.  
+
+### 🔎 What It Does
+- When user submits their name:  
+  - Sends a **Notification** (“Hello, [Name]”).  
+  - Clicking the notification reopens `MainActivity`.  
+- Sets **daily reminders** (via `SchedulerHelper`).  
+- Uses **WorkManager** for background log sync.  
+
+### 🏆 Outcome
+- Learned **Notifications** (Android 8+ channels).  
+- Implemented **AlarmManager** for reminders.  
+- Implemented **WorkManager** for background tasks.  
+
+### 🧪 How to Test
+1. Open the app and enter your name.  
+2. Notification should pop up with your name.  
+3. Click the notification → opens app again.  
+4. Wait 1 minute → AlarmManager reminder triggers.  
+5. Check logcat → WorkManager job is executed.  
+
+---
+
+## ✅ Week 3: Dashboard with RecyclerView  
+
+### 📂 Code Implemented
+- **RecyclerView (GridLayout, 2x2)**.  
+- **DashboardAdapter.java** → binds data to cards.  
+- **item_dashboard_card.xml** → MaterialCardView UI (Title + Detail + Icon).  
+
+### 🔎 What It Does
+- Creates a dashboard with **4 cards**:  
+  - 📊 App Usage  
+  - 🔋 Battery Info  
+  - 🌐 Network  
+  - 📜 Logs  
+- Grid layout → **2 rows x 2 columns**.  
+
+### 🏆 Outcome
+- Learned **RecyclerView & Adapter Pattern**.  
+- Applied **Material Design components**.  
+- Practiced **dynamic UI binding**.  
+
+### 🧪 How to Test
+1. Launch app → Dashboard shows 4 cards.  
+2. Click a card → shows a Toast with details.  
+3. Scroll behavior works smoothly.  
+4. UI adapts well in portrait/landscape.  
 
-This repository documents the Phase 1 → Month 2 progress of the AI-Powered System Control App.
-We implemented notifications, permissions, logging, alerts, scheduling, and app usage monitoring.
+---
 
-📌 Week 1: Notifications & Permissions
-🎯 Goal
+## ✅ Week 4: Real Data Integration  
 
-Build custom notifications.
+### 📂 Code Implemented
+- **UsageStatsHelper.java** → fetches app usage stats (last 24h).  
+- **BatteryReceiver.java** → real-time battery % and charging status.  
+- **NetworkHelper.java** → detects Wi-Fi / Mobile / No Network.  
+- **LogManager.java** → maintains JSON-based logs.  
 
-Handle runtime permissions (Camera, Storage).
+### 🔎 What It Does
+- **App Usage Card**: Shows Top 5 most-used apps in last 24 hours (HH:MM:SS).  
+- **Battery Card**: Shows % and charging state.  
+- **Network Card**: Wi-Fi / Mobile Data / No network.  
+- **Logs Card**: Displays last 6 events (e.g., permission granted, app opened).  
 
-Create UI with buttons to toggle theme, submit, request permissions.
+### 🏆 Outcome
+- Mastered **System APIs**: `UsageStatsManager`, `BatteryManager`, `ConnectivityManager`.  
+- Linked **real data → UI cards**.  
+- Practiced error handling (`try/catch` with fallbacks).  
 
-🔧 Key Code
-NotificationHelper.java
-package com.example.utils;
+### 🧪 How to Test
+1. Open app → all 4 cards load with **real system data**.  
+2. Open YouTube/WhatsApp → check usage stats card.  
+3. Plug in charger → battery card updates to “Charging”.  
+4. Turn Wi-Fi ON/OFF → network card updates.  
+5. Perform actions (e.g., submit name, voice button) → logs card shows entries.  
 
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.os.Build;
+---
 
-import androidx.core.app.NotificationCompat;
-
-public class NotificationHelper {
-    private static final String CHANNEL_ID = "my_channel";
-
-    public static void createChannel(Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "App Channel", NotificationManager.IMPORTANCE_HIGH);
-            NotificationManager manager = context.getSystemService(NotificationManager.class);
-            manager.createNotificationChannel(channel);
-        }
-    }
+# 📂 Final Project Structure (Phase 1)
 
-    public static void sendSimpleNotification(Context context, int id, String title, String text) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setAutoCancel(true);
-
-        NotificationManager manager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-        manager.notify(id, builder.build());
-    }
-}
-
-MainActivity.java (Week 1 Section)
-Button notifyButton = findViewById(R.id.notifyButton);
-notifyButton.setOnClickListener(v -> {
-    NotificationHelper.sendSimpleNotification(
-        this, 1001, "Hello!", "This is your first custom notification."
-    );
-});
-
-Permissions
-String[] permissions = {
-    Manifest.permission.CAMERA,
-    Manifest.permission.READ_EXTERNAL_STORAGE
-};
-
-
-📜 Manifest
-
-<uses-permission android:name="android.permission.CAMERA"/>
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-
-▶️ Testing
-
-Run the app → Click Notify Button → Custom notification shows.
-
-Tap Permission Button → Camera & Storage permissions requested.
-
-📸 Screenshot Placeholder: Notification & Permission UI
-
-📌 Week 2: Logging & Alerts
-🎯 Goal
-
-Log app events to a JSON file.
-
-Manage alerts with receivers.
-
-Display logs in RecyclerView Dashboard.
-
-🔧 Key Code
-LogManager.java
-package com.example.utils;
-
-import android.content.Context;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import java.io.FileOutputStream;
-import java.io.FileInputStream;
-
-public class LogManager {
-    private static final String FILE_NAME = "app_logs.json";
-    private Context context;
-
-    public LogManager(Context context) { this.context = context; }
-
-    public void logEvent(LogEvent event) {
-        try {
-            JSONArray logs = readLogs();
-            logs.put(event.toJSON());
-            FileOutputStream fos = context.openFileOutput(FILE_NAME, Context.MODE_PRIVATE);
-            fos.write(logs.toString().getBytes());
-            fos.close();
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    private JSONArray readLogs() {
-        try {
-            FileInputStream fis = context.openFileInput(FILE_NAME);
-            byte[] buffer = new byte[fis.available()];
-            fis.read(buffer);
-            fis.close();
-            return new JSONArray(new String(buffer));
-        } catch (Exception e) {
-            return new JSONArray();
-        }
-    }
-}
-
-LogEvent.java
-package com.example.utils;
-
-import org.json.JSONObject;
-
-public class LogEvent {
-    private String type, level, source;
-    private JSONObject meta;
-
-    public LogEvent(String type, String level, String source, JSONObject meta) {
-        this.type = type;
-        this.level = level;
-        this.source = source;
-        this.meta = meta;
-    }
-
-    public JSONObject toJSON() {
-        JSONObject obj = new JSONObject();
-        try {
-            obj.put("type", type);
-            obj.put("level", level);
-            obj.put("source", source);
-            obj.put("meta", meta);
-        } catch (Exception e) { e.printStackTrace(); }
-        return obj;
-    }
-}
-
-RecyclerView Dashboard
-RecyclerView recyclerView = findViewById(R.id.dashboardRecyclerView);
-recyclerView.setLayoutManager(new LinearLayoutManager(this));
-List<String> items = new ArrayList<>();
-items.add("File deleted event logged");
-DashboardAdapter adapter = new DashboardAdapter(items);
-recyclerView.setAdapter(adapter);
-
-▶️ Testing
-
-Run app → Perform actions → JSON log created.
-
-Open Dashboard → View latest log entries.
-
-📸 Screenshot Placeholder: Log Dashboard UI
-
-📌 Week 3: Scheduling & App Usage Monitoring
-🎯 Goal
-
-Schedule daily reminders using AlarmManager.
-
-Track app usage stats via UsageStatsManager.
-
-Display usage in UI.
-
-🔧 Key Code
-SchedulerHelper.java
-package com.example.utils;
-
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import java.util.Calendar;
-
-public class SchedulerHelper {
-    public static void scheduleDailyNotification(Context context, Intent intent) {
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, 9); // 9 AM
-        calendar.set(Calendar.MINUTE, 0);
-
-        alarmManager.setInexactRepeating(
-                AlarmManager.RTC_WAKEUP,
-                calendar.getTimeInMillis(),
-                AlarmManager.INTERVAL_DAY,
-                pendingIntent
-        );
-    }
-}
-
-UsageStatsHelper.java
-package com.example.utils;
-
-import android.app.usage.UsageStats;
-import android.app.usage.UsageStatsManager;
-import android.content.Context;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-public class UsageStatsHelper {
-    public static String getUsageSummary(Context context) {
-        UsageStatsManager usm = (UsageStatsManager) 
-                context.getSystemService(Context.USAGE_STATS_SERVICE);
-
-        long endTime = System.currentTimeMillis();
-        long startTime = endTime - TimeUnit.HOURS.toMillis(1);
-
-        List<UsageStats> stats = usm.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
-
-        StringBuilder sb = new StringBuilder();
-        if (stats != null) {
-            for (UsageStats stat : stats) {
-                long totalTime = stat.getTotalTimeInForeground() / 1000;
-                if (totalTime > 0) {
-                    sb.append(stat.getPackageName()).append(" : ")
-                      .append(totalTime).append(" sec\n");
-                }
-            }
-        } else {
-            sb.append("No usage data available.\n");
-        }
-        return sb.toString();
-    }
-}
-
-MainActivity.java (Week 3 Section)
-// Schedule reminder
-Intent alarmIntent = new Intent(this, SnoozeActionReceiver.class);
-SchedulerHelper.scheduleDailyNotification(this, alarmIntent);
-
-// Show usage stats
-String usageReport = UsageStatsHelper.getUsageSummary(this);
-Toast.makeText(this, usageReport, Toast.LENGTH_LONG).show();
-
-
-📜 Manifest
-
-<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-    tools:ignore="ProtectedPermissions"/>
-
-<receiver android:name=".utils.SnoozeActionReceiver"/>
-
-▶️ Testing
-
-Run the app → Grant Notification + Usage Access permissions.
-
-Wait until scheduled time (9 AM by default, can reduce for testing).
-
-See notification pop up + usage stats in Toast/RecyclerView.
-
-📸 Screenshot Placeholder: Usage Stats UI
-
-✅ Summary of Phase 1 (Month 2)
-
-Week 1: Notifications & Permissions.
-
-Week 2: Logging & Alerts.
-
-Week 3: Scheduling & App Usage Monitoring.
-
-This completes the Phase 1 → Month 2 roadmap 🚀.
-Next, we will extend features in Month 3 (Smart Suggestions, Optimization, etc.).
-
-📌 Learning Outcomes
-
-Week 1 → Intents, Activity Lifecycle, Runtime Permissions.
-
-Week 2 → Structured Logging, Notifications with Actions.
-
-Week 3 → Background Scheduling, UsageStats API.
-
-Week 4 → System Monitoring, RecyclerView Dashboard.
