@@ -5,66 +5,70 @@ import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.text.format.DateUtils;
-import android.util.Log;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class UsageStatsHelper {
 
     public static String getTopUsageSummary(Context context) {
-        try {
-            UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
-            long end = System.currentTimeMillis();
-            long start = end - TimeUnit.HOURS.toMillis(24); // last 24 hours
-            List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end);
+        UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
+        PackageManager pm = context.getPackageManager();
 
-            if (stats == null || stats.isEmpty()) {
-                return "No usage data. Grant Usage Access.";
-            }
+        long endTime = System.currentTimeMillis();
+        long startTime = endTime - (12 * 60 * 60 * 1000); // last 12h
 
-            // sort by lastTimeUsed or totalTimeInForeground
-            Collections.sort(stats, Comparator.comparingLong(UsageStats::getTotalTimeInForeground));
-            // reverse for descending
-            Collections.reverse(stats);
+        List<UsageStats> stats = usm.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                startTime,
+                endTime
+        );
 
-            PackageManager pm = context.getPackageManager();
-            List<String> lines = new ArrayList<>();
-            int count = 0;
-            for (UsageStats s : stats) {
-                long totalMs = s.getTotalTimeInForeground();
-                if (totalMs <= 0) continue;
-                String pkg = s.getPackageName();
-                String label;
-                try {
-                    ApplicationInfo ai = pm.getApplicationInfo(pkg, 0);
-                    label = pm.getApplicationLabel(ai).toString();
-                } catch (PackageManager.NameNotFoundException e) {
-                    label = pkg;
-                }
-                // remove package-like names, keep only label (e.g., "YouTube", "WhatsApp")
-                String hhmmss = formatMillis(totalMs);
-                lines.add(label + " — " + hhmmss);
-                count++;
-                if (count >= 5) break;
-            }
-            if (lines.isEmpty()) return "No apps used in last 24h";
-            return String.join("\n", lines);
-        } catch (Exception e) {
-            Log.e("UsageStatsHelper", "error", e);
-            return "UsageStats error";
+        if (stats == null || stats.isEmpty()) {
+            return "No usage data (grant Usage Access in settings)";
         }
-    }
 
-    private static String formatMillis(long ms) {
-        long seconds = ms / 1000;
-        long h = seconds / 3600;
-        long m = (seconds % 3600) / 60;
-        long s = seconds % 60;
-        return String.format("%02d:%02d:%02d", h, m, s);
+        Map<String, Long> usageMap = new HashMap<>();
+        for (UsageStats usage : stats) {
+            String pkg = usage.getPackageName();
+            try {
+                ApplicationInfo appInfo = pm.getApplicationInfo(pkg, 0);
+
+                // Skip system apps
+                if ((appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
+
+                String appName = pm.getApplicationLabel(appInfo).toString();
+                long time = usage.getTotalTimeInForeground();
+
+                usageMap.put(appName, usageMap.getOrDefault(appName, 0L) + time);
+            } catch (Exception ignored) {}
+        }
+
+        // Sort by usage time
+        List<Map.Entry<String, Long>> sorted = new ArrayList<>(usageMap.entrySet());
+        sorted.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+
+        // Build readable string
+        StringBuilder sb = new StringBuilder("App Usage (Last 12h):\n");
+
+        int count = 0;
+        for (Map.Entry<String, Long> entry : sorted) {
+            long millis = entry.getValue();
+            String time = String.format(Locale.getDefault(), "%02d:%02d:%02d",
+                    TimeUnit.MILLISECONDS.toHours(millis),
+                    TimeUnit.MILLISECONDS.toMinutes(millis) % 60,
+                    TimeUnit.MILLISECONDS.toSeconds(millis) % 60);
+
+            sb.append(entry.getKey()).append(" → ").append(time).append("\n");
+
+            if (++count >= 5) break; // show top 5
+        }
+
+        return sb.toString();
     }
 }
