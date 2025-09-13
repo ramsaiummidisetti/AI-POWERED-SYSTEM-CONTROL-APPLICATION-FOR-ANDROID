@@ -10,9 +10,11 @@ public class SecondActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_second);
 
-        // Retrieve passed data
-        String userName = getIntent().getStringExtra("USER_NAME");
         TextView textView = findViewById(R.id.textView);
-        textView.setText(userName != null && !userName.isEmpty() ? "Hello, " + userName : "Welcome to Second Activity");
+        String userName = getIntent().getStringExtra("USER_NAME");
+
+        if (userName != null) {
+            textView.setText("Hello, " + userName + "!");
+        }
     }
 }
