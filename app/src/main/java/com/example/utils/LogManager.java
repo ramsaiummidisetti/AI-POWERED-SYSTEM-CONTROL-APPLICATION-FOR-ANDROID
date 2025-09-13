@@ -11,6 +11,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class LogManager {
 
     private static final String FILE_NAME = "app_logs.json";
@@ -87,4 +90,21 @@ public class LogManager {
       public void write(LogEvent event) {
         Log.d("LogManager", event.toString());
     }
+    public List<String> getLogs() {
+    List<String> logs = new ArrayList<>();
+    try (FileInputStream fis = context.openFileInput(FILE_NAME)) {
+        byte[] buffer = new byte[fis.available()];
+        fis.read(buffer);
+        String json = new String(buffer);
+
+        JSONArray arr = new JSONArray(json);
+        for (int i = arr.length() - 1; i >= 0 && logs.size() < 5; i--) {
+            JSONObject obj = arr.getJSONObject(i);
+            logs.add(obj.getString("eventType") + " - " + obj.getString("level"));
+        }
+    } catch (Exception e) {
+        logs.add("No logs available");
+    }
+    return logs;
+}
 }
