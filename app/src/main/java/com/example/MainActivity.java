@@ -211,10 +211,11 @@ public class MainActivity extends AppCompatActivity {
         titles.add("Logs");
         details.add("Fetching logs...");
 
-        adapter = new DashboardAdapter(titles, details, item -> {
-            Toast.makeText(this, "Clicked: " + item, Toast.LENGTH_SHORT).show();
+        DashboardAdapter adapter = new DashboardAdapter(titles, details, item -> {
+        Toast.makeText(this, "Clicked: " + item, Toast.LENGTH_SHORT).show();
         });
         recyclerView.setAdapter(adapter);
+
 
         // ✅ Auto-update battery info
         BatteryReceiver br = new BatteryReceiver(info -> {
