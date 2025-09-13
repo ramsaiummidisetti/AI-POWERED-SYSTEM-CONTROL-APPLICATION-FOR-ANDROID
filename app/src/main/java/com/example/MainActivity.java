@@ -1,31 +1,22 @@
 package com.example;
 
-import android.view.View;
-import com.example.utils.ReminderReceiver;
-import com.example.utils.AlertManager;
-import com.example.utils.BatteryReceiver;
-import com.example.utils.LogEvent;
-import com.example.utils.LogManager;
-import com.example.utils.LogSyncWorker;
-import com.example.utils.NotificationHelper;
-import com.example.utils.SchedulerHelper;
-import com.example.utils.SmartSuggestions;
-import com.example.utils.NetworkHelper;
-import com.example.utils.DashboardAdapter;
-import com.example.utils.UsageStatsHelper;
-
 import android.Manifest;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -33,234 +24,231 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
+import com.example.utils.LogEvent;
+import com.example.utils.LogManager;
+import com.example.utils.LogSyncWorker;
+import com.example.utils.NotificationHelper;
+import com.example.utils.SchedulerHelper;
+import com.example.utils.SmartSuggestions;
+import com.example.utils.UsageStatsHelper;
+import com.example.utils.NetworkHelper;
+import com.example.utils.ReminderReceiver;
+import com.example.utils.DashboardAdapter;
+
 import org.json.JSONObject;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "MainActivity";
     private boolean isDark = false;
     private ActivityResultLauncher<String[]> permissionLauncher;
-    private AlertManager alertManager;
-
-    // Dashboard data
-    private List<String> titles;
-    private List<String> details;
-    private DashboardAdapter adapter;
-    private EditText nameEditText;
-    private Button btn_submit;
+    private com.example.utils.AlertManager alertManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main); // your main layout
 
-        // Initialize nameEditText
-        nameEditText = findViewById(R.id.nameEditText);
+        // init AlertManager (your utility)
+        alertManager = new com.example.utils.AlertManager(this);
 
-        btn_submit = findViewById(R.id.btn_submit);
-
-        btn_submit.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, SecondActivity.class);
-                String userName = nameEditText.getText().toString();
-                intent.putExtra("USER_NAME", userName);
-                startActivity(intent);
-            }
-        });
-        alertManager = new AlertManager(this);
-
-        // ✅ Notification permission (Android 13+)
+        // request POST_NOTIFICATIONS on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
-            }String userName = nameEditText.getText().toString();
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
+            }
         }
-        // ✅ Week 1: Open Second Activity with explicit intent
-        findViewById(R.id.btn_submit).setOnClickListener(v -> {
-            String userName = nameEditText.getText().toString();
-            Intent intent = new Intent(MainActivity.this, SecondActivity.class);
-            intent.putExtra("USER_NAME", userName.isEmpty() ? "Guest" : userName);
-            startActivity(intent);
-        });
 
-        // ✅ Setup notifications
         NotificationHelper.createChannel(this);
 
-        // ✅ Logging example
+        // Logging manager
         LogManager logManager = new LogManager(this);
+
+        // Demo log event
         try {
             JSONObject metaFile = new JSONObject();
             metaFile.put("fileName", "example.txt");
             metaFile.put("fileSize", 1024);
-            logManager.logEvent(new LogEvent("file_deleted", "info", "app", metaFile));
+            LogEvent fileDeleted = new LogEvent("file_deleted", "info", "app", metaFile);
+            logManager.logEvent(fileDeleted);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Log meta creation failed", e);
         }
 
-        // UI references
-        TextView welcomeText = findViewById(R.id.welcomeText);
-        nameEditText = findViewById(R.id.nameEditText);
-        Button themeToggleButton = findViewById(R.id.themeToggleButton);
+        // Views
+        EditText nameEditText = findViewById(R.id.et_name);
         Button submitCommandButton = findViewById(R.id.btn_submit);
+        Button themeToggleButton = findViewById(R.id.themeToggleButton);
         Button voiceButton = findViewById(R.id.btn_voice);
         Button permissionButton = findViewById(R.id.permissionButton);
 
-        // ✅ Theme toggle
         themeToggleButton.setOnClickListener(v -> {
             isDark = !isDark;
             String mode = isDark ? "Dark Mode" : "Light Mode";
             Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
         });
 
-        // ✅ Submit button
-        submitCommandButton.setOnClickListener(v -> {
-            String userName = nameEditText.getText().toString();
-            if (!userName.isEmpty()) {
-                welcomeText.setText("Hello, " + userName + "!");
-
-                // Log event
-                try {
-                    JSONObject meta = new JSONObject();
-                    meta.put("userName", userName);
-                    logManager.logEvent(new LogEvent("user_greeted", "info", "app", meta));
-                } catch (Exception ignored) {}
-
-                // 🔔 Notification example
-                Intent mainIntent = new Intent(this, MainActivity.class);
-                NotificationHelper.sendActionNotification(
-                        this, 1001, "Welcome", "Hello, " + userName + "!",
-                        mainIntent, mainIntent
-                );
-
-                // ⏰ Schedule alarm
-                AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-                Intent alarmIntent = new Intent(this, ReminderReceiver.class);
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                        this, 0, alarmIntent, PendingIntent.FLAG_IMMUTABLE
-                );
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                            AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + 60000,
-                            pendingIntent);
-                } else {
-                    alarmManager.setExact(
-                            AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + 60000,
-                            pendingIntent);
-                }
-
-                // 📦 Background log sync
-                OneTimeWorkRequest workRequest =
-                        new OneTimeWorkRequest.Builder(LogSyncWorker.class).build();
-                WorkManager.getInstance(this).enqueue(workRequest);
-
-                // Daily notifications
-                SchedulerHelper.scheduleDailyNotification(this);
+        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+            Boolean cameraGranted = result.containsKey(Manifest.permission.CAMERA) && result.get(Manifest.permission.CAMERA);
+            Boolean storageGranted = result.containsKey(Manifest.permission.READ_EXTERNAL_STORAGE) && result.get(Manifest.permission.READ_EXTERNAL_STORAGE);
+            if (cameraGranted && storageGranted) {
+                Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // ✅ Voice button
-        voiceButton.setOnClickListener(v -> {
-            Toast.makeText(this, "Voice command feature coming soon", Toast.LENGTH_SHORT).show();
-        });
-
-        // ✅ Permission button
-        permissionLauncher = registerForActivityResult(
-                new ActivityResultContracts.RequestMultiplePermissions(),
-                result -> {
-                    boolean cameraGranted = Boolean.TRUE.equals(result.get(Manifest.permission.CAMERA));
-                    boolean storageGranted = Boolean.TRUE.equals(result.get(Manifest.permission.READ_EXTERNAL_STORAGE));
-                    if (cameraGranted && storageGranted) {
-                        Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show();
-                    }
-                });
         permissionButton.setOnClickListener(v -> requestPermissions());
 
-        // ✅ Setup RecyclerView
+        // RecyclerView: 2 columns grid for cards (2x2)
         RecyclerView recyclerView = findViewById(R.id.dashboardRecyclerView);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        GridLayoutManager gridLayoutManager = new GridLayoutManager(this, 2);
+        recyclerView.setLayoutManager(gridLayoutManager);
 
-        titles = new ArrayList<>();
-        details = new ArrayList<>();
+        // Titles and initial placeholders for details
+        List<String> titles = new ArrayList<>();
+        List<String> details = new ArrayList<>();
 
-        // Add dashboard cards
         titles.add("App Usage");
-        details.add(UsageStatsHelper.getUsageSummary(this));
+        details.add("Loading...");
 
         titles.add("Battery Info");
         details.add("Loading...");
 
         titles.add("Network");
-        details.add(NetworkHelper.getNetworkStatus(this));
+        details.add("Loading...");
 
         titles.add("Logs");
-        details.add("Fetching logs...");
+        details.add("Loading...");
 
-        DashboardAdapter adapter = new DashboardAdapter(titles, details, item -> {
-        Toast.makeText(this, "Clicked: " + item, Toast.LENGTH_SHORT).show();
+        // Adapter with click listener
+        DashboardAdapter adapter = new DashboardAdapter(titles, details, (title, position) -> {
+            // On card click — show expanded info (simple behavior)
+            switch (title) {
+                case "App Usage":
+                    Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
+                    break;
+                case "Battery Info":
+                    Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
+                    break;
+                case "Network":
+                    Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
+                    break;
+                case "Logs":
+                    Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
+                    break;
+            }
         });
+
         recyclerView.setAdapter(adapter);
 
-
-        // ✅ Auto-update battery info
-        BatteryReceiver br = new BatteryReceiver(info -> {
-            details.set(1, info); // Update Battery Info card
-            adapter.notifyItemChanged(1);
-        });
-        registerReceiver(br, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-
-        // ✅ Auto-update logs
-        List<String> logs = logManager.getLogs();
-        if (!logs.isEmpty()) {
-            details.set(3, String.join("\n", logs));
-            adapter.notifyItemChanged(3);
+        // Populate details with real data (keeps UI thread safe — these are light)
+        // 1) App usage (top 5 in last 24 hours)
+        try {
+            String usage = UsageStatsHelper.getTopUsageSummary(this); // updated helper (see instructions below)
+            details.set(0, usage);
+        } catch (Exception e) {
+            Log.e(TAG, "UsageStats error", e);
+            details.set(0, "Usage: error");
         }
-    }
 
-    private void requestPermissions() {
-        String[] permissions = {
-                Manifest.permission.CAMERA,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-        };
-        boolean cameraGranted = ContextCompat.checkSelfPermission(this,
-                Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
-        boolean storageGranted = ContextCompat.checkSelfPermission(this,
-                Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        if (!cameraGranted || !storageGranted) {
-            permissionLauncher.launch(permissions);
-        } else {
-            Toast.makeText(this, "Permissions already granted", Toast.LENGTH_SHORT).show();
+        // 2) Battery (instant sticky intent)
+        try {
+            String batteryInfo = getBatteryInfo();
+            details.set(1, batteryInfo);
+        } catch (Exception e) {
+            Log.e(TAG, "Battery error", e);
+            details.set(1, "Battery: error");
         }
-    }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        alertManager.register();
+        // 3) Network
+        try {
+            String net = NetworkHelper.getNetworkStatus(this); // if you have this helper
+            if (net == null) net = getNetworkStatusFallback();
+            details.set(2, net);
+        } catch (Exception e) {
+            Log.e(TAG, "Network error", e);
+            details.set(2, "Network: error");
+        }
+
+        // 4) Logs (last few lines)
+        try {
+            List<String> logs = logManager.getLogs(); // your LogManager should provide this
+            if (logs == null || logs.isEmpty()) details.set(3, "No logs available");
+            else details.set(3, String.join("\n", logs.subList(Math.max(0, logs.size() - 6), logs.size())));
+        } catch (Exception e) {
+            Log.e(TAG, "LogManager error", e);
+            details.set(3, "Logs: error");
+        }
+
+        // Tell adapter data changed
+        adapter.notifyDataSetChanged();
+
+        // Extra: schedule a one-time work (example) and alarm (kept minimal)
+        OneTimeWorkRequest workRequest = new OneTimeWorkRequest.Builder(LogSyncWorker.class).build();
+        WorkManager.getInstance(this).enqueue(workRequest);
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        Intent alarmIntent = new Intent(this, ReminderReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_IMMUTABLE);
+        if (alarmManager != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, pendingIntent);
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, pendingIntent);
+            }
+        }
+
+        // Register smart suggestions on start (you already had these)
         SmartSuggestions.checkStorageAndSuggest(this);
         SmartSuggestions.checkBatteryAndSuggest(this);
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        alertManager.unregister();
+    private void requestPermissions() {
+        String[] permissions = {Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE};
+        boolean cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        boolean storageGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        if (!cameraGranted || !storageGranted) permissionLauncher.launch(permissions);
+        else Toast.makeText(this, "Permissions already granted", Toast.LENGTH_SHORT).show();
     }
-  
-     
+
+    private String getBatteryInfo() {
+        Intent batteryStatus = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (batteryStatus == null) return "Battery: unavailable";
+        int level = batteryStatus.getIntExtra("level", -1);
+        int scale = batteryStatus.getIntExtra("scale", -1);
+        int status = batteryStatus.getIntExtra("status", -1);
+
+        int percent = (int) ((level / (float) scale) * 100);
+        String chargeStatus = (status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == android.os.BatteryManager.BATTERY_STATUS_FULL) ? "Charging" : "Not charging";
+
+        return percent + "% - " + chargeStatus;
+    }
+
+    private String getNetworkStatusFallback() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return "Network: unknown";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+            if (caps == null) return "No network";
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return "Wi-Fi connected";
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return "Mobile data connected";
+            return "Other network";
+        } else {
+            return "Network status requires API >= M";
+        }
+    }
 }

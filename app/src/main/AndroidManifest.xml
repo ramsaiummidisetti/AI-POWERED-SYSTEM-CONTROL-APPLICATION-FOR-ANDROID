@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.BATTERY_STATS" tools:ignore="ProtectedPermissions"/>
+   
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Declare that camera is optional -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -15,6 +16,7 @@
         tools:ignore="ProtectedPermissions" />
 
     <application
+
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher_4"
         android:label="@string/app_name"
@@ -35,7 +37,7 @@
       
 
           <!-- Other Activities -->
-        <activity android:name=".SecondActivity"/>
+        <activity android:name=".SecondActivity" android:exported="false"/>
 
 
         <!-- Receivers -->
@@ -44,7 +46,7 @@
          <receiver android:name="com.example.utils.BatteryReceiver" android:exported="false"/>
         <receiver android:name="com.example.utils.NetworkReceiver" android:exported="false"/>
 
-        <activity android:name=".DashboardActivity" />
+        <activity android:name=".DashboardActivity" android:exported="false"/>
 
     </application>
 </manifest>
