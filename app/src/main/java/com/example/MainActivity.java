@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
         // Views
         EditText nameEditText = findViewById(R.id.et_name);
         Button submitCommandButton = findViewById(R.id.btn_submit);
-        Button themeToggleButton = findViewById(R.id.themeToggleButton);
+        // Button themeToggleButton = findViewById(R.id.themeToggleButton);
         Button voiceButton = findViewById(R.id.btn_voice);
 
         // ✅ Submit button → open SecondActivity + send notification
@@ -108,11 +108,11 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // ✅ Theme toggle
-        themeToggleButton.setOnClickListener(v -> {
-            isDark = !isDark;
-            String mode = isDark ? "Dark Mode" : "Light Mode";
-            Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
-        });
+        // themeToggleButton.setOnClickListener(v -> {
+        //     isDark = !isDark;
+        //     String mode = isDark ? "Dark Mode" : "Light Mode";
+        //     Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
+        // });
 
         // ✅ RecyclerView with 2x2 grid
         RecyclerView recyclerView = findViewById(R.id.dashboardRecyclerView);
@@ -133,12 +133,15 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         // ✅ Populate cards
+        // Inside your details population
         try {
-            details.set(0, UsageStatsHelper.getTopUsageSummary(this));
+            String usage = UsageStatsHelper.getUsageSummary(this); // ✅ fixed method name
+            details.set(0, usage);
         } catch (Exception e) {
             Log.e(TAG, "UsageStats error", e);
             details.set(0, "Usage: error");
         }
+
 
         try {
             details.set(1, getBatteryInfo());

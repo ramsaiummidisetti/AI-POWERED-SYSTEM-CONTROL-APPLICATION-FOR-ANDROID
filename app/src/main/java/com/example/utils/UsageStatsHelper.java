@@ -8,20 +8,21 @@ import android.content.pm.PackageManager;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
 
 public class UsageStatsHelper {
 
-    public static String getTopUsageSummary(Context context) {
-        UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
-        PackageManager pm = context.getPackageManager();
-
+    public static String getUsageSummary(Context context) {
         long endTime = System.currentTimeMillis();
-        long startTime = endTime - (12 * 60 * 60 * 1000); // last 12h
+        long startTime = endTime - 12 * 60 * 60 * 1000; // last 12 hours
+
+        UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
+        if (usm == null) return "UsageStatsManager unavailable";
 
         List<UsageStats> stats = usm.queryUsageStats(
                 UsageStatsManager.INTERVAL_DAILY,
@@ -30,45 +31,52 @@ public class UsageStatsHelper {
         );
 
         if (stats == null || stats.isEmpty()) {
-            return "No usage data (grant Usage Access in settings)";
+            return "No usage data (grant permission in Settings)";
         }
 
+        PackageManager pm = context.getPackageManager();
         Map<String, Long> usageMap = new HashMap<>();
+
         for (UsageStats usage : stats) {
-            String pkg = usage.getPackageName();
-            try {
-                ApplicationInfo appInfo = pm.getApplicationInfo(pkg, 0);
+            long time = usage.getTotalTimeInForeground();
+            if (time > 0) {
+                try {
+                    ApplicationInfo appInfo = pm.getApplicationInfo(usage.getPackageName(), 0);
+                    String appName = pm.getApplicationLabel(appInfo).toString();
 
-                // Skip system apps
-                if ((appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
+                    // ✅ don’t filter system apps (yet)
+                    if (usageMap.containsKey(appName)) {
+                        usageMap.put(appName, usageMap.get(appName) + time);
+                    } else {
+                        usageMap.put(appName, time);
+                    }
 
-                String appName = pm.getApplicationLabel(appInfo).toString();
-                long time = usage.getTotalTimeInForeground();
-
-                usageMap.put(appName, usageMap.getOrDefault(appName, 0L) + time);
-            } catch (Exception ignored) {}
+                } catch (PackageManager.NameNotFoundException ignored) {}
+            }
         }
 
-        // Sort by usage time
+        // Sort by usage time (descending)
         List<Map.Entry<String, Long>> sorted = new ArrayList<>(usageMap.entrySet());
-        sorted.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+        Collections.sort(sorted, (e1, e2) -> Long.compare(e2.getValue(), e1.getValue()));
 
-        // Build readable string
+
         StringBuilder sb = new StringBuilder("App Usage (Last 12h):\n");
-
-        int count = 0;
         for (Map.Entry<String, Long> entry : sorted) {
-            long millis = entry.getValue();
-            String time = String.format(Locale.getDefault(), "%02d:%02d:%02d",
-                    TimeUnit.MILLISECONDS.toHours(millis),
-                    TimeUnit.MILLISECONDS.toMinutes(millis) % 60,
-                    TimeUnit.MILLISECONDS.toSeconds(millis) % 60);
-
-            sb.append(entry.getKey()).append(" → ").append(time).append("\n");
-
-            if (++count >= 5) break; // show top 5
+            sb.append(entry.getKey())
+              .append(" → ")
+              .append(formatTime(entry.getValue()))
+              .append("\n");
         }
 
         return sb.toString();
+    }
+
+    private static String formatTime(long millis) {
+        long seconds = millis / 1000;
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        long secs = seconds % 60;
+
+        return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, secs);
     }
 }
