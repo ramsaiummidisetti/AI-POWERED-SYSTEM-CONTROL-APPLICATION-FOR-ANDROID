@@ -16,33 +16,36 @@
         android:orientation="vertical"
         android:gravity="center"
         android:padding="16dp">
-        
+
+        <!-- ✅ NFC Icon (Public Drawable, Safe to Use) -->
         <ImageView
             android:id="@+id/cardIcon"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:contentDescription="Card Icon"
-            android:src="@android:drawable/ic_menu_info_details"
-            android:tint="@android:color/holo_blue_dark" />
+            android:contentDescription="NFC Icon"
+            android:src="@android:drawable/ic_menu_share"
+            android:tint="@android:color/holo_green_dark" />
 
+        <!-- ✅ Card Title -->
         <TextView
             android:id="@+id/dashboard_item_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Card Title"
+            android:text="NFC Status"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
-            android:gravity="center"/>
+            android:gravity="center" />
 
+        <!-- ✅ Card Detail (Dynamic from MainActivity) -->
         <TextView
             android:id="@+id/dashboard_item_detail"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Details here..."
+            android:text="Checking..."
             android:textSize="12sp"
             android:textColor="@android:color/darker_gray"
-            android:gravity="center"/>
+            android:gravity="center" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

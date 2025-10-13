@@ -48,5 +48,6 @@
     android:padding="8dp"
     android:clipToPadding="false"
     android:scrollbars="none"/>
-
+<include layout="@layout/card_bluetooth"/>
+<include layout="@layout/card_nfc"/>
 </LinearLayout>

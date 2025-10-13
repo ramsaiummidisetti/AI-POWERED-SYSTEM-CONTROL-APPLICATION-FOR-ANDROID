@@ -124,3 +124,94 @@ Functional dashboard screen integrated into MainActivity.
 All 4 key system metrics are accessible via RecyclerView cards.
 
 Forms the base for expanding into real-time monitoring in future weeks.
+
+
+Bluetooth Integration Snippet (RecyclerView-ready)
+// 1️⃣ Declare Bluetooth adapter at class level
+private BluetoothAdapter bluetoothAdapter;
+
+// 2️⃣ Initialize Bluetooth in onCreate()
+bluetoothAdapter = BluetoothAdapter.getDefaultAdapter(); // get device Bluetooth adapter
+
+// 3️⃣ Add "Bluetooth" card to RecyclerView data
+titles.add("Bluetooth");
+details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off");
+
+// 4️⃣ Handle click on Bluetooth card inside RecyclerView adapter
+adapter = new DashboardAdapter(titles, details, (title, position) -> {
+    if (title.equals("Bluetooth")) {
+        toggleBluetooth();
+    } else {
+        Toast.makeText(this, details.get(position), Toast.LENGTH_SHORT).show();
+    }
+});
+recyclerView.setAdapter(adapter);
+
+// 5️⃣ Toggle Bluetooth and update RecyclerView dynamically
+private void toggleBluetooth() {
+    if (bluetoothAdapter == null) return;
+
+    if (bluetoothAdapter.isEnabled()) {
+        bluetoothAdapter.disable(); // turn off
+    } else {
+        bluetoothAdapter.enable(); // turn on
+    }
+
+    // Delay to allow state change before updating UI
+    new android.os.Handler().postDelayed(() -> {
+        boolean enabled = bluetoothAdapter.isEnabled();
+        for (int i = 0; i < titles.size(); i++) {
+            if (titles.get(i).equals("Bluetooth")) {
+                details.set(i, enabled ? "On" : "Off"); // update card text
+                adapter.notifyItemChanged(i);           // refresh RecyclerView
+                break;
+            }
+        }
+    }, 500);
+}
+
+Explanation of the Code
+
+BluetoothAdapter
+
+Represents the device Bluetooth hardware.
+
+getDefaultAdapter() returns the adapter if the device supports Bluetooth, else null.
+
+Adding Bluetooth card
+
+Add "Bluetooth" to titles and set initial status "On" or "Off" based on isEnabled().
+
+This makes it part of the RecyclerView dashboard.
+
+Click listener inside RecyclerView adapter
+
+Detects when user clicks the Bluetooth card.
+
+Calls toggleBluetooth() to switch Bluetooth on/off.
+
+toggleBluetooth() method
+
+Checks if Bluetooth is supported (bluetoothAdapter != null).
+
+Turns Bluetooth on/off using enable() / disable().
+
+Uses a small Handler delay (500ms) to allow the state change to propagate.
+
+Updating the card
+
+Iterates over titles to find the Bluetooth card.
+
+Updates its corresponding details value to "On" or "Off".
+
+Calls adapter.notifyItemChanged() to refresh only that card in the RecyclerView.
+
+✅ Benefits:
+
+Fully modular, easy to drop into your existing MainActivity.
+
+No need for separate TextView or ImageView references.
+
+Compatible with RecyclerView dashboard.
+
+Dynamic, live update of Bluetooth status in the card.
