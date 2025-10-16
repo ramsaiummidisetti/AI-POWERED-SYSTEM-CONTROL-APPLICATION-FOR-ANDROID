@@ -22,7 +22,6 @@ import android.widget.Toast;
 
 import android.nfc.NfcAdapter;
 
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -54,93 +53,96 @@ public class MainActivity extends AppCompatActivity {
     private boolean isDark = false;
     private AlertManager alertManager;
 
-     // RecyclerView card data
+    // RecyclerView card data
     private List<String> titles;
     private List<String> details;
     private DashboardAdapter adapter;
 
     private BluetoothAdapter bluetoothAdapter;
- 
 
-//     protected void onCreate(Bundle savedInstanceState) {
-//         super.onCreate(savedInstanceState);
-//         setContentView(R.layout.activity_dashboard);
+    // protected void onCreate(Bundle savedInstanceState) {
+    // super.onCreate(savedInstanceState);
+    // setContentView(R.layout.activity_dashboard);
 
-//         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-//         bluetoothStatus = findViewById(R.id.cardBluetoothStatus);
-//         bluetoothIcon = findViewById(R.id.cardBluetoothIcon);
+    // bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    // bluetoothStatus = findViewById(R.id.cardBluetoothStatus);
+    // bluetoothIcon = findViewById(R.id.cardBluetoothIcon);
 
-//         updateBluetoothStatus();
+    // updateBluetoothStatus();
 
-//         // Toggle Bluetooth on click
-//         bluetoothIcon.setOnClickListener(v -> {
-//             if (bluetoothAdapter != null) {
-//                 if (bluetoothAdapter.isEnabled()) {
-//                     bluetoothAdapter.disable();
-//                 } else {
-//                     bluetoothAdapter.enable();
-//                 }
-//                 updateBluetoothStatus();
-//             }
-//         });
-//     }
+    // // Toggle Bluetooth on click
+    // bluetoothIcon.setOnClickListener(v -> {
+    // if (bluetoothAdapter != null) {
+    // if (bluetoothAdapter.isEnabled()) {
+    // bluetoothAdapter.disable();
+    // } else {
+    // bluetoothAdapter.enable();
+    // }
+    // updateBluetoothStatus();
+    // }
+    // });
+    // }
 
-//     private void updateBluetoothStatus() {
-//         if (bluetoothAdapter != null) {
-//             if (bluetoothAdapter.isEnabled()) {
-//                 bluetoothStatus.setText("On");
-//                 bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.holo_blue_dark));
-//             } else {
-//                 bluetoothStatus.setText("Off");
-//                 bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.darker_gray));
-//             }
-//         } else {
-//             bluetoothStatus.setText("Not Supported");
-//             bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.darker_gray));
-//         }
-//     }
-    
-// private void setupBluetooth() {
-//     bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-//     if (bluetoothAdapter == null) {
-//         Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
-//         return;
-//     }
-//     updateBluetoothUI(bluetoothAdapter.isEnabled());
-// }
+    // private void updateBluetoothStatus() {
+    // if (bluetoothAdapter != null) {
+    // if (bluetoothAdapter.isEnabled()) {
+    // bluetoothStatus.setText("On");
+    // bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.holo_blue_dark));
+    // } else {
+    // bluetoothStatus.setText("Off");
+    // bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.darker_gray));
+    // }
+    // } else {
+    // bluetoothStatus.setText("Not Supported");
+    // bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.darker_gray));
+    // }
+    // }
 
-// private void toggleBluetooth() {
-//     if (bluetoothAdapter != null) {
-//         if (bluetoothAdapter.isEnabled()) {
-//             bluetoothAdapter.disable();
-//         } else {
-//             bluetoothAdapter.enable();
-//         }
-//         // Small delay may be needed to get the updated state
-//         new android.os.Handler().postDelayed(() -> 
-//             updateBluetoothUI(bluetoothAdapter.isEnabled()), 500);
-//     }
-// }
+    // private void setupBluetooth() {
+    // bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    // if (bluetoothAdapter == null) {
+    // Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
+    // return;
+    // }
+    // updateBluetoothUI(bluetoothAdapter.isEnabled());
+    // }
 
-// private void updateBluetoothUI(boolean enabled) {
-//     // Update RecyclerView detail for Bluetooth card
-//     for (int i = 0; i < titles.size(); i++) {
-//         if (titles.get(i).equals("Bluetooth")) {
-//             details.set(i, enabled ? "On" : "Off");
-//             adapter.notifyItemChanged(i);
-//             break;
-//         }
-//     }
-// }
+    // private void toggleBluetooth() {
+    // if (bluetoothAdapter != null) {
+    // if (bluetoothAdapter.isEnabled()) {
+    // bluetoothAdapter.disable();
+    // } else {
+    // bluetoothAdapter.enable();
+    // }
+    // // Small delay may be needed to get the updated state
+    // new android.os.Handler().postDelayed(() ->
+    // updateBluetoothUI(bluetoothAdapter.isEnabled()), 500);
+    // }
+    // }
+
+    // private void updateBluetoothUI(boolean enabled) {
+    // // Update RecyclerView detail for Bluetooth card
+    // for (int i = 0; i < titles.size(); i++) {
+    // if (titles.get(i).equals("Bluetooth")) {
+    // details.set(i, enabled ? "On" : "Off");
+    // adapter.notifyItemChanged(i);
+    // break;
+    // }
+    // }
+    // }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-           // Initialize Bluetooth
+        // inside onCreate() after setContentView(...)
+        Button refreshButton = findViewById(R.id.btn_refresh);
+        refreshButton.setOnClickListener(v -> refreshDashboard());
+
+        // Initialize Bluetooth
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        
+
         // init AlertManager
         alertManager = new AlertManager(this);
 
@@ -186,8 +188,7 @@ public class MainActivity extends AppCompatActivity {
                         "Welcome",
                         "Hello, " + userName + "!",
                         mainIntent,
-                        mainIntent
-                );
+                        mainIntent);
             } else {
                 Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
             }
@@ -195,9 +196,9 @@ public class MainActivity extends AppCompatActivity {
 
         // ✅ Theme toggle
         // themeToggleButton.setOnClickListener(v -> {
-        //     isDark = !isDark;
-        //     String mode = isDark ? "Dark Mode" : "Light Mode";
-        //     Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
+        // isDark = !isDark;
+        // String mode = isDark ? "Dark Mode" : "Light Mode";
+        // Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
         // });
 
         // ✅ RecyclerView with 2x2 grid
@@ -207,12 +208,16 @@ public class MainActivity extends AppCompatActivity {
         titles = new ArrayList<>();
         details = new ArrayList<>();
 
-        titles.add("App Usage"); details.add("Loading...");
-        titles.add("Battery Info"); details.add("Loading...");
-        titles.add("Network"); details.add("Loading...");
-        titles.add("Bluetooth"); details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off"); // replaced Logs
+        titles.add("App Usage");
+        details.add("Loading...");
+        titles.add("Battery Info");
+        details.add("Loading...");
+        titles.add("Network");
+        details.add("Loading...");
+        titles.add("Bluetooth");
+        details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off"); // replaced Logs
 
-          // ✅ Add NFC card
+        // ✅ Add NFC card
         titles.add("NFC");
         NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
         if (nfcAdapter == null) {
@@ -224,11 +229,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Adapter with click handling
-         adapter = new DashboardAdapter(titles, details, (title, position) -> {
+        adapter = new DashboardAdapter(titles, details, (title, position) -> {
 
-                if (title.equals("Bluetooth")) {
+            if (title.equals("Bluetooth")) {
                 toggleBluetooth(); // call a method to toggle
-            }  else if (title.equals("NFC")) {
+            } else if (title.equals("NFC")) {
                 NfcAdapter nfcAdapterInner = NfcAdapter.getDefaultAdapter(this);
                 if (nfcAdapterInner != null && !nfcAdapterInner.isEnabled()) {
                     Toast.makeText(this, "Please enable NFC in settings", Toast.LENGTH_SHORT).show();
@@ -240,7 +245,6 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
             }
         });
-
 
         recyclerView.setAdapter(adapter);
 
@@ -254,7 +258,6 @@ public class MainActivity extends AppCompatActivity {
             details.set(0, "Usage: error");
         }
 
-
         try {
             details.set(1, getBatteryInfo());
         } catch (Exception e) {
@@ -264,7 +267,8 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             String net = NetworkHelper.getNetworkStatus(this);
-            if (net == null) net = getNetworkStatusFallback();
+            if (net == null)
+                net = getNetworkStatusFallback();
             details.set(2, net);
         } catch (Exception e) {
             Log.e(TAG, "Network error", e);
@@ -272,12 +276,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // try {
-        //     List<String> logs = logManager.getLogs();
-        //     if (logs == null || logs.isEmpty()) details.set(3, "No logs available");
-        //     else details.set(3, String.join("\n", logs.subList(Math.max(0, logs.size() - 6), logs.size())));
+        // List<String> logs = logManager.getLogs();
+        // if (logs == null || logs.isEmpty()) details.set(3, "No logs available");
+        // else details.set(3, String.join("\n", logs.subList(Math.max(0, logs.size() -
+        // 6), logs.size())));
         // } catch (Exception e) {
-        //     Log.e(TAG, "LogManager error", e);
-        //     details.set(3, "Logs: error");
+        // Log.e(TAG, "LogManager error", e);
+        // details.set(3, "Logs: error");
         // }
 
         adapter.notifyDataSetChanged();
@@ -291,7 +296,8 @@ public class MainActivity extends AppCompatActivity {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_IMMUTABLE);
         if (alarmManager != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, pendingIntent);
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000,
+                        pendingIntent);
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, pendingIntent);
             }
@@ -304,7 +310,8 @@ public class MainActivity extends AppCompatActivity {
 
     // Toggle Bluetooth and update RecyclerView card
     private void toggleBluetooth() {
-        if (bluetoothAdapter == null) return;
+        if (bluetoothAdapter == null)
+            return;
 
         if (bluetoothAdapter.isEnabled()) {
             bluetoothAdapter.disable();
@@ -353,15 +360,17 @@ public class MainActivity extends AppCompatActivity {
 
         // Notifications (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 102);
+                ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 102);
         }
     }
 
     // 📌 Battery Info
     private String getBatteryInfo() {
         Intent batteryStatus = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-        if (batteryStatus == null) return "Battery: unavailable";
+        if (batteryStatus == null)
+            return "Battery: unavailable";
         int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
         int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
         int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
@@ -376,12 +385,16 @@ public class MainActivity extends AppCompatActivity {
     // 📌 Network fallback
     private String getNetworkStatusFallback() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm == null) return "Network: unknown";
+        if (cm == null)
+            return "Network: unknown";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
-            if (caps == null) return "No network";
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return "Wi-Fi connected";
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return "Mobile data connected";
+            if (caps == null)
+                return "No network";
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+                return "Wi-Fi connected";
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
+                return "Mobile data connected";
             return "Other network";
         } else {
             return "Network status requires API >= M";
@@ -396,8 +409,53 @@ public class MainActivity extends AppCompatActivity {
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
+    // ✅ Refresh all card values dynamically
+    private void refreshDashboard() {
+        try {
+            // App Usage
+            String usage = UsageStatsHelper.getUsageSummary(this);
+            details.set(0, usage);
+        } catch (Exception e) {
+            details.set(0, "Usage: error");
+        }
+
+        // Battery
+        details.set(1, getBatteryInfo());
+
+        // Network
+        String net = NetworkHelper.getNetworkStatus(this);
+        if (net == null)
+            net = getNetworkStatusFallback();
+        details.set(2, net);
+
+        // Bluetooth
+        if (bluetoothAdapter != null)
+            details.set(3, bluetoothAdapter.isEnabled() ? "On" : "Off");
+        else
+            details.set(3, "Not Supported");
+
+        // NFC
+        NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (nfcAdapter == null)
+            details.set(4, "Not Supported");
+        else if (nfcAdapter.isEnabled())
+            details.set(4, "On");
+        else
+            details.set(4, "Off");
+
+        adapter.notifyDataSetChanged();
+        Toast.makeText(this, "Dashboard refreshed", Toast.LENGTH_SHORT).show();
+    }
+
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    protected void onResume() {
+        super.onResume();
+        refreshDashboard(); // auto-refresh when returning from Settings
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 101) {
             for (int i = 0; i < permissions.length; i++) {
@@ -410,4 +468,3 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
-
