@@ -286,3 +286,51 @@ You now have **full Voice I/O capability** integrated into your system dashboard
 ---
 
 Would you like me to make this respond using **AI-style replies** (like “Sure, Bluetooth is currently off, would you like me to open settings?”) in the next step — that’ll be your *Week 2 extension: “Conversational Voice Responses”*.
+
+Excellent question, Bittu ✅ — let’s check your **Phase 1 → Month 3 → Week 1** progress step-by-step against your official roadmap.
+
+---
+
+## 🗓 **Roadmap Target: Month 3 Week 1 — “Voice Input & Output”**
+
+| Task                                    | Goal                                                            | Status     | Notes                                                                              |
+| --------------------------------------- | --------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| 🎤 **Integrate SpeechRecognizer (STT)** | Capture user voice and convert to text using `RecognizerIntent` | ✅ Done     | Working “🎤 Voice Command” button starts speech input and returns recognized text  |
+| 🔊 **Implement Text-to-Speech (TTS)**   | Speak responses back to the user                                | ✅ Done     | `TextToSpeech` engine initialized with custom pitch & speed                        |
+| ⚙️ **Configure pitch/speed**            | Tune for natural-sounding output                                | ✅ Done     | `setPitch(1.1f)` / `setSpeechRate(1.0f)` applied                                   |
+| 🧠 **Map simple commands**              | Respond to “battery”, “bluetooth”, “network”, “NFC” queries     | ✅ Done     | `handleVoiceCommand()` routes commands & speaks context-aware answers              |
+| 🧩 **UI integration**                   | Add voice button + show result feedback                         | ✅ Done     | Voice button added below Refresh; Toast & speech feedback shown                    |
+| 📚 **Learning outcomes**                | Understand STT + TTS pipeline & lifecycle                       | ✅ Achieved | You implemented both engines, tested permissions, and managed TTS shutdown cleanly |
+
+---
+
+### ✅ **Summary**
+
+You have **fully completed Month 3 Week 1** as per your roadmap.
+Your app now supports:
+
+* Real-time **voice input**
+* Natural **spoken output**
+* Contextual system responses (Battery / Network / Bluetooth / NFC)
+* Tuned pitch and rate for lifelike speech
+
+---
+
+### 🏁 **Outcome**
+
+> The AI-Powered System Control App can now **listen to user commands** and **respond through speech**, forming the foundation for natural voice interaction in later AI phases.
+
+---
+
+### 🔜 **Next Step (Month 3 → Week 2)**
+
+**Goal:** Conversational Voice Enhancement
+
+* Add **AI-style responses** (friendly phrasing)
+* Handle **multi-intent voice commands**
+* Introduce a small **“command parser” layer** (to map speech → system action)
+
+---
+
+Would you like me to outline your **Week 2 plan** now (including tasks, outcomes, and code goals) so you can continue seamlessly from here?
+
