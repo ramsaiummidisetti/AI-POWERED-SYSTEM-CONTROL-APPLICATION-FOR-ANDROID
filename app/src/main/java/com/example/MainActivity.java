@@ -1,5 +1,11 @@
 package com.example;
 
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+
+import com.example.utils.ContextManager;
+import com.example.utils.GestureHandler;
+
 import android.Manifest;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -42,6 +48,14 @@ import com.example.utils.ReminderReceiver;
 import com.example.utils.DashboardAdapter;
 import com.example.utils.AlertManager;
 
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import java.util.Locale;
+
+import com.example.utils.IntentParser;
+import com.example.utils.CommandOrchestrator;
+
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -60,85 +74,57 @@ public class MainActivity extends AppCompatActivity {
 
     private BluetoothAdapter bluetoothAdapter;
 
-    // protected void onCreate(Bundle savedInstanceState) {
-    // super.onCreate(savedInstanceState);
-    // setContentView(R.layout.activity_dashboard);
+    private TextToSpeech textToSpeech;
+    private static final int REQ_CODE_SPEECH_INPUT = 100;
 
-    // bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-    // bluetoothStatus = findViewById(R.id.cardBluetoothStatus);
-    // bluetoothIcon = findViewById(R.id.cardBluetoothIcon);
-
-    // updateBluetoothStatus();
-
-    // // Toggle Bluetooth on click
-    // bluetoothIcon.setOnClickListener(v -> {
-    // if (bluetoothAdapter != null) {
-    // if (bluetoothAdapter.isEnabled()) {
-    // bluetoothAdapter.disable();
-    // } else {
-    // bluetoothAdapter.enable();
-    // }
-    // updateBluetoothStatus();
-    // }
-    // });
-    // }
-
-    // private void updateBluetoothStatus() {
-    // if (bluetoothAdapter != null) {
-    // if (bluetoothAdapter.isEnabled()) {
-    // bluetoothStatus.setText("On");
-    // bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.holo_blue_dark));
-    // } else {
-    // bluetoothStatus.setText("Off");
-    // bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.darker_gray));
-    // }
-    // } else {
-    // bluetoothStatus.setText("Not Supported");
-    // bluetoothIcon.setColorFilter(getResources().getColor(android.R.color.darker_gray));
-    // }
-    // }
-
-    // private void setupBluetooth() {
-    // bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-    // if (bluetoothAdapter == null) {
-    // Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
-    // return;
-    // }
-    // updateBluetoothUI(bluetoothAdapter.isEnabled());
-    // }
-
-    // private void toggleBluetooth() {
-    // if (bluetoothAdapter != null) {
-    // if (bluetoothAdapter.isEnabled()) {
-    // bluetoothAdapter.disable();
-    // } else {
-    // bluetoothAdapter.enable();
-    // }
-    // // Small delay may be needed to get the updated state
-    // new android.os.Handler().postDelayed(() ->
-    // updateBluetoothUI(bluetoothAdapter.isEnabled()), 500);
-    // }
-    // }
-
-    // private void updateBluetoothUI(boolean enabled) {
-    // // Update RecyclerView detail for Bluetooth card
-    // for (int i = 0; i < titles.size(); i++) {
-    // if (titles.get(i).equals("Bluetooth")) {
-    // details.set(i, enabled ? "On" : "Off");
-    // adapter.notifyItemChanged(i);
-    // break;
-    // }
-    // }
-    // }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        contextManager = new ContextManager(this);
+
+        gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
+            @Override
+            public void onSwipeLeft() {
+                speak("You swiped left. Showing previous status.");
+            }
+
+            @Override
+            public void onSwipeRight() {
+                speak("You swiped right. Refreshing dashboard.");
+                refreshDashboard();
+            }
+
+            @Override
+            public void onDoubleTap() {
+                String context = contextManager.detectContext();
+                speak("Detected context: " + context);
+            }
+        }));
+
         // inside onCreate() after setContentView(...)
         Button refreshButton = findViewById(R.id.btn_refresh);
         refreshButton.setOnClickListener(v -> refreshDashboard());
+
+        // 🎤 Voice button
+        Button voiceButton = findViewById(R.id.btn_voice);
+        voiceButton.setOnClickListener(v -> startVoiceInput());
+
+        // 🔊 Initialize Text-to-Speech
+        textToSpeech = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                int result = textToSpeech.setLanguage(Locale.ENGLISH);
+                textToSpeech.setPitch(1.1f);
+                textToSpeech.setSpeechRate(1.0f);
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Toast.makeText(this, "TTS language not supported", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(this, "TTS initialization failed", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // Initialize Bluetooth
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -166,8 +152,6 @@ public class MainActivity extends AppCompatActivity {
         // Views
         EditText nameEditText = findViewById(R.id.et_name);
         Button submitCommandButton = findViewById(R.id.btn_submit);
-        // Button themeToggleButton = findViewById(R.id.themeToggleButton);
-        Button voiceButton = findViewById(R.id.btn_voice);
 
         // ✅ Submit button → open SecondActivity + send notification
         submitCommandButton.setOnClickListener(v -> {
@@ -193,13 +177,6 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
             }
         });
-
-        // ✅ Theme toggle
-        // themeToggleButton.setOnClickListener(v -> {
-        // isDark = !isDark;
-        // String mode = isDark ? "Dark Mode" : "Light Mode";
-        // Toast.makeText(this, "Switched to " + mode, Toast.LENGTH_SHORT).show();
-        // });
 
         // ✅ RecyclerView with 2x2 grid
         RecyclerView recyclerView = findViewById(R.id.dashboardRecyclerView);
@@ -275,16 +252,6 @@ public class MainActivity extends AppCompatActivity {
             details.set(2, "Network: error");
         }
 
-        // try {
-        // List<String> logs = logManager.getLogs();
-        // if (logs == null || logs.isEmpty()) details.set(3, "No logs available");
-        // else details.set(3, String.join("\n", logs.subList(Math.max(0, logs.size() -
-        // 6), logs.size())));
-        // } catch (Exception e) {
-        // Log.e(TAG, "LogManager error", e);
-        // details.set(3, "Logs: error");
-        // }
-
         adapter.notifyDataSetChanged();
 
         // ✅ Schedule background work
@@ -310,13 +277,27 @@ public class MainActivity extends AppCompatActivity {
 
     // Toggle Bluetooth and update RecyclerView card
     private void toggleBluetooth() {
-        if (bluetoothAdapter == null)
+        if (bluetoothAdapter == null){
+            Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
             return;
+        }
+          // Check runtime permission for Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 103);
+            return;
+        }
 
         if (bluetoothAdapter.isEnabled()) {
-            bluetoothAdapter.disable();
+            boolean success = bluetoothAdapter.disable();
+            if (success) speak("Turning off Bluetooth.");
+            else speak("Unable to turn off Bluetooth directly. Please check settings.");
         } else {
-            bluetoothAdapter.enable();
+           boolean success = bluetoothAdapter.enable();
+           if (success) speak("Turning on Bluetooth.");
+        else speak("Unable to turn on Bluetooth directly. Please check settings.");
         }
 
         // Delay to allow state change
@@ -328,8 +309,23 @@ public class MainActivity extends AppCompatActivity {
                     adapter.notifyItemChanged(i);
                     break;
                 }
-            }
-        }, 500);
+        }
+        }, 1500);
+    }
+    private void openBluetoothSettingsFallback() {
+        Intent intent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+        startActivity(intent);
+    }
+    public boolean tryEnableBluetoothDirectly() {
+        if (bluetoothAdapter == null) return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return false; // blocked by Android
+        return bluetoothAdapter.enable();
+    }
+
+    public boolean tryDisableBluetoothDirectly() {
+        if (bluetoothAdapter == null) return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return false; // blocked by Android
+        return bluetoothAdapter.disable();
     }
 
     // 📌 Ask for all runtime permissions
@@ -367,7 +363,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // 📌 Battery Info
-    private String getBatteryInfo() {
+    public String getBatteryInfo() {
         Intent batteryStatus = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         if (batteryStatus == null)
             return "Battery: unavailable";
@@ -383,7 +379,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // 📌 Network fallback
-    private String getNetworkStatusFallback() {
+    public String getNetworkStatusFallback() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm == null)
             return "Network: unknown";
@@ -448,10 +444,61 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        refreshDashboard(); // auto-refresh when returning from Settings
+        protected void onResume() {
+            super.onResume();
+            refreshDashboard(); // auto-refresh when returning from Settings
+        }
+        private void startVoiceInput() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Listening...");
+        try {
+            startActivityForResult(intent, REQ_CODE_SPEECH_INPUT);
+        } catch (Exception e) {
+            Toast.makeText(this, "Speech not supported on this device", Toast.LENGTH_SHORT).show();
+        }
     }
+     @Override
+        protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+            super.onActivityResult(requestCode, resultCode, data);
+            if (requestCode == REQ_CODE_SPEECH_INPUT && resultCode == RESULT_OK && data != null) {
+                ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if (result != null && !result.isEmpty()) {
+                    String voiceText = result.get(0).toLowerCase();
+                    Toast.makeText(this, "You said: " + voiceText, Toast.LENGTH_SHORT).show();
+                    handleVoiceCommand(voiceText);
+                }
+            }
+        }
+    private void handleVoiceCommand(String command) {
+           // 1️⃣ Parse the user's spoken text into structured intent
+    IntentParser.ParsedIntent parsed = IntentParser.parse(command);
+
+    // 2️⃣ Pass it to the orchestrator for execution
+    CommandOrchestrator orchestrator = new CommandOrchestrator(this, textToSpeech, this);
+    orchestrator.execute(parsed);
+    }
+        public boolean isBluetoothOn() {
+        return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
+    }
+
+        public void turnOffBluetooth() {
+            if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+                bluetoothAdapter.disable();
+            }
+        }
+
+        public void openBluetoothSettings() {
+            Intent intent = new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
+            startActivity(intent);
+        }
+
+        private void speak(String text) {
+            if (textToSpeech != null) {
+                textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+            }
+        }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
@@ -467,4 +514,21 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+    @Override
+    protected void onDestroy() {
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+        super.onDestroy();
+    }
+
+    private GestureDetector gestureDetector;
+    private ContextManager contextManager;
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
+    }
+
 }
