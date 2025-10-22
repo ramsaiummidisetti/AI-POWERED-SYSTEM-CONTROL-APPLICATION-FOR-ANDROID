@@ -95,11 +95,11 @@ private void handleBluetooth(String action) {
 This ensures the AI system reacts smartly to Android’s version rules while providing natural voice feedback.
 
 ---
-````
+```
 ## 🧩 Project Structure (Terminal View)
 
 ```bash
-````
+
 📁 AI_Powered_System_Control_App/
 ├── 📁 app/
 │   ├── 📁 src/
@@ -131,7 +131,7 @@ This ensures the AI system reacts smartly to Android’s version rules while pro
 ```
 
 ---
-````
+
 ## 🧾 How It Works (Summary)
 
 1. **Speech-to-Text:**
