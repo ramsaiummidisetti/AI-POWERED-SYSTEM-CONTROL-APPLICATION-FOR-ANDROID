@@ -4,7 +4,7 @@ It documents what was done in Week 1 (Voice I/O) and Week 2 (Intent Parsing & Or
 ---
 
 ```markdown
-# 📱 AI-Powered System Control App for Android
+## 📱 AI-Powered System Control App for Android
 ## Phase 1 — Month 3 (Week 1 → Week 2)
 **Milestone:** Voice Input & Output (Week 1) → Intent Parsing & Orchestration (Week 2)  
 **Owner:** Ramsai (Bittu)
@@ -50,8 +50,6 @@ This release adds voice interaction (Speech-to-Text and Text-to-Speech) and a si
 ---
 
 ## 🧩 Project Structure (relevant files)
-```
-
 MyAndroidApp/
 ├── app/
 │   ├── src/main/java/com/example/
