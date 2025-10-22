@@ -1,227 +1,230 @@
-Excellent, Bittu 💪 — we’re now moving into a **core intelligence milestone** of your AI System Control App:
-📅 **Phase 1 → Month 3 → Week 2: Intent Parsing and Orchestration**
-
-This week transforms your app from simple “voice commands” into a **mini AI system** that understands *intent* and *routes actions dynamically*.
-
-Let’s break it down properly 👇
+Absolutely, Bittu ✅ — here’s your updated and polished **`README.md` for Month 3 – Week 2**, reflecting your **latest Bluetooth handling logic**, voice orchestration, and all working updates as of now.
+It’s perfectly formatted to upload directly to your **GitHub repository**.
 
 ---
 
-## 🧭 **Goal: Intent Parsing & Orchestration**
+````markdown
+# 🤖 AI-Powered System Control App — Phase 1  
+### 📅 Month 3, Week 2 — Intent Parsing & Command Orchestration
 
-> Build a lightweight **NLP-based command parser** that extracts user intent (like “turn on Bluetooth” or “what’s my battery level”) and passes it to an **orchestrator** that decides which system API to call.
-
-You’ll also add **fallback handling**, so when a command isn’t recognized, your AI replies naturally.
-
----
-
-## 🎯 **Objectives for This Week**
-
-| Step | Component                    | Description                                                                         |
-| ---- | ---------------------------- | ----------------------------------------------------------------------------------- |
-| 1️⃣  | **Keyword-Based NLP Parser** | Parse speech text using keywords or Regex (e.g., “battery”, “bluetooth”, “network”) |
-| 2️⃣  | **Slot Filling**             | Extract specific values (e.g., “turn on” vs “turn off”)                             |
-| 3️⃣  | **Command Orchestrator**     | Direct parsed intent to the correct Android API method                              |
-| 4️⃣  | **Fallback Handling**        | Respond gracefully when intent is unknown (“Sorry, I didn’t get that.”)             |
-| 5️⃣  | **Command Pattern**          | Use modular code (parser → orchestrator → executor) for future scalability          |
+**Developer:** Ramsai (Bittu)  
+**Platform:** Android (Java, VS Code / Android Studio)  
+**Focus:** Natural voice-driven system control with smart intent routing  
 
 ---
 
-## 🧠 **Learning Outcomes**
+## 🧭 Overview
 
-By the end of Week 2, you’ll know:
+This week continues the AI-powered control system’s development by implementing a **keyword-based NLP parser** and a **Command Orchestrator** that routes interpreted voice commands to system-level APIs (Bluetooth, Battery, Network, NFC).  
 
-* How to perform **keyword-based NLP parsing** in Java
-* How to use **Regex** for slot extraction (e.g., ON/OFF, STATUS, GET)
-* How to implement a **Command Orchestration pattern** for routing actions
-* How to handle **unknown commands** and return safe fallback responses
+The app can now **understand**, **interpret**, and **respond** to commands like:  
+> “Turn off Bluetooth”, “What’s my battery level?”, “Check network status”  
 
----
-
-## 📚 **Resources**
-
-| Concept                                                                                 | Link |
-| --------------------------------------------------------------------------------------- | ---- |
-| 🧠 [Java NLP Basics](https://www.baeldung.com/java-nlp-opennlp)                         |      |
-| ⚙️ [Command Pattern (Design Pattern)](https://refactoring.guru/design-patterns/command) |      |
+while handling Android’s Bluetooth restrictions safely and intelligently.
 
 ---
 
-## 🧩 **Implementation Overview**
+## 🎯 Goals
 
-You’ll add 2 new helper classes:
-
-### 1️⃣ `IntentParser.java`
-
-Extracts keywords and action type from recognized speech.
-Uses Regex and simple keyword maps.
-
-### 2️⃣ `CommandOrchestrator.java`
-
-Receives parsed intent → calls the right MainActivity method (like checking battery, toggling Bluetooth, etc.).
+| Objective | Description |
+|------------|-------------|
+| 🔹 **Intent Parsing** | Build a keyword-based NLP parser to detect target (Bluetooth, NFC, Network, Battery) and action (on, off, check, status, level). |
+| 🔹 **Command Orchestration** | Route parsed intent to corresponding Android APIs or helper methods. |
+| 🔹 **Smart Fallbacks** | Handle system restrictions gracefully, with natural TTS feedback. |
+| 🔹 **Voice Command Integration** | Connect parser and orchestrator to the SpeechRecognizer (from Week 1). |
 
 ---
 
-## 🧾 **Workflow**
+## 🧠 Learning Outcomes
 
-```
-🎤 User: “Turn off Bluetooth”
-↓
-🧩 IntentParser → { intent: "bluetooth", action: "turn_off" }
-↓
-⚙️ CommandOrchestrator → Calls toggleBluetooth()
-↓
-🔊 TTS Response: “Bluetooth turned off successfully.”
-```
+- Designed a **modular NLP layer** using Java (`IntentParser`).
+- Implemented an **orchestrator pattern** (`CommandOrchestrator`) for clean command routing.
+- Learned Android system control constraints (e.g., Bluetooth enable restrictions on Android 12+).
+- Practiced **runtime permissions**, **cross-class communication**, and **TTS-based feedback loops**.
 
 ---
 
-## ✅ **Code Plan (Simple Flow Example)**
+## ✅ Features Implemented
 
-### 📁 `utils/IntentParser.java`
+### 🔸 Core Additions
+- `IntentParser.java` → Extracts *target* and *action* keywords from voice input.
+- `CommandOrchestrator.java` → Executes parsed commands through `MainActivity` helpers.
+- Updated `MainActivity.java` with helper methods:
+  - `isBluetoothOn()`
+  - `tryEnableBluetoothDirectly()`
+  - `tryDisableBluetoothDirectly()`
+  - `openBluetoothSettings()`
+  - `getBatteryInfo()` (public)
+  - `getNetworkStatusFallback()` (public)
+- Bluetooth logic now auto-detects Android version:
+  - **Direct toggle** on Android ≤ 11
+  - **Opens Bluetooth settings** on Android ≥ 12 with TTS explanation
 
+---
+
+## ⚙️ Updated Bluetooth Voice Logic
+
+**Example from `CommandOrchestrator.java`:**
 ```java
-package com.example.utils;
-
-import java.util.Locale;
-
-public class IntentParser {
-
-    public static ParsedIntent parse(String command) {
-        command = command.toLowerCase(Locale.ROOT);
-        String target = null;
-        String action = null;
-
-        // 🔹 Identify target
-        if (command.contains("bluetooth")) target = "bluetooth";
-        else if (command.contains("battery")) target = "battery";
-        else if (command.contains("network")) target = "network";
-        else if (command.contains("nfc")) target = "nfc";
-
-        // 🔹 Identify action
-        if (command.contains("turn on") || command.contains("enable")) action = "on";
-        else if (command.contains("turn off") || command.contains("disable")) action = "off";
-        else if (command.contains("status") || command.contains("check")) action = "status";
-        else if (command.contains("level")) action = "level";
-
-        if (target == null)
-            return new ParsedIntent("unknown", "unknown");
-        if (action == null)
-            action = "status";
-
-        return new ParsedIntent(target, action);
-    }
-
-    // Inner data class
-    public static class ParsedIntent {
-        public String target;
-        public String action;
-        public ParsedIntent(String target, String action) {
-            this.target = target;
-            this.action = action;
-        }
-    }
-}
-```
-
----
-
-### 📁 `utils/CommandOrchestrator.java`
-
-```java
-package com.example.utils;
-
-import android.content.Context;
-import android.speech.tts.TextToSpeech;
-import android.widget.Toast;
-
-import com.example.MainActivity;
-
-public class CommandOrchestrator {
-
-    private final Context context;
-    private final TextToSpeech tts;
-    private final MainActivity main;
-
-    public CommandOrchestrator(Context context, TextToSpeech tts, MainActivity main) {
-        this.context = context;
-        this.tts = tts;
-        this.main = main;
-    }
-
-    public void execute(IntentParser.ParsedIntent intent) {
-        switch (intent.target) {
-            case "bluetooth":
-                handleBluetooth(intent.action);
-                break;
-            case "battery":
-                speak(main.getBatteryInfo());
-                break;
-            case "network":
-                speak("Network status is " + main.getNetworkStatusFallback());
-                break;
-            case "nfc":
-                speak("NFC check complete.");
-                break;
-            default:
-                speak("Sorry, I didn't understand that command.");
-        }
-    }
-
-    private void handleBluetooth(String action) {
-        if (action.equals("on")) {
-            speak("Opening Bluetooth settings to enable Bluetooth.");
-            main.openBluetoothSettings();
-        } else if (action.equals("off")) {
-            main.turnOffBluetooth();
-            speak("Bluetooth turned off.");
+private void handleBluetooth(String action) {
+    if (action.equals("on")) {
+        if (!main.isBluetoothOn()) {
+            boolean success = main.tryEnableBluetoothDirectly();
+            if (success) speak("Bluetooth turned on successfully.");
+            else {
+                speak("I can’t turn it on directly due to system limits. Opening settings.");
+                main.openBluetoothSettings();
+            }
         } else {
-            speak("Bluetooth is currently " + (main.isBluetoothOn() ? "on" : "off"));
+            speak("Bluetooth is already on.");
         }
-    }
-
-    private void speak(String text) {
-        if (tts != null)
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
-        Toast.makeText(context, text, Toast.LENGTH_SHORT).show();
+    } else if (action.equals("off")) {
+        if (main.isBluetoothOn()) {
+            boolean success = main.tryDisableBluetoothDirectly();
+            if (success) speak("Bluetooth turned off successfully.");
+            else speak("Unable to turn it off directly on this Android version.");
+        } else {
+            speak("Bluetooth is already off.");
+        }
+    } else {
+        speak("Bluetooth is currently " + (main.isBluetoothOn() ? "on" : "off"));
     }
 }
+````
+
+This ensures the AI system reacts smartly to Android’s version rules while providing natural voice feedback.
+
+---
+
+## 🧩 Project Structure (Terminal View)
+
+```bash
+📁 AI_Powered_System_Control_App/
+├── 📁 app/
+│   ├── 📁 src/
+│   │   ├── 📁 main/
+│   │   │   ├── 📁 java/com/example/
+│   │   │   │   ├── MainActivity.java
+│   │   │   │   ├── SecondActivity.java
+│   │   │   │   └── 📁 utils/
+│   │   │   │       ├── CommandOrchestrator.java
+│   │   │   │       ├── IntentParser.java
+│   │   │   │       ├── NetworkHelper.java
+│   │   │   │       ├── NotificationHelper.java
+│   │   │   │       ├── SmartSuggestions.java
+│   │   │   │       ├── UsageStatsHelper.java
+│   │   │   │       └── ...
+│   │   │   ├── 📁 res/layout/
+│   │   │   │   ├── activity_main.xml
+│   │   │   │   ├── card_bluetooth.xml
+│   │   │   │   ├── card_network.xml
+│   │   │   │   ├── card_nfc.xml
+│   │   │   │   ├── card_battery.xml
+│   │   │   │   └── card_usage.xml
+│   │   │   └── AndroidManifest.xml
+│   ├── build.gradle
+│   └── proguard-rules.pro
+├── build.gradle
+├── settings.gradle
+└── README.md
 ```
 
 ---
 
-## 🔗 **Integration**
+## 🧾 How It Works (Summary)
 
-In your `MainActivity.handleVoiceCommand(String command)` → replace existing logic with:
+1. **Speech-to-Text:**
+   The voice input from the user is captured using Android’s `SpeechRecognizer`.
 
-```java
-IntentParser.ParsedIntent parsed = IntentParser.parse(command);
-CommandOrchestrator orchestrator = new CommandOrchestrator(this, textToSpeech, this);
-orchestrator.execute(parsed);
+2. **Intent Parsing:**
+   `IntentParser` analyzes the recognized command and returns a `ParsedIntent` object.
+
+3. **Command Orchestration:**
+   `CommandOrchestrator` receives the parsed intent and executes corresponding logic using helper methods in `MainActivity`.
+
+4. **Text-to-Speech:**
+   The result is spoken aloud via `TextToSpeech` and shown as a Toast message.
+
+---
+
+## 🧠 Sample Voice Commands
+
+| Command                    | Expected Response                                           |
+| -------------------------- | ----------------------------------------------------------- |
+| “Turn on Bluetooth”        | Opens Bluetooth settings if direct toggle restricted        |
+| “Turn off Bluetooth”       | Disables Bluetooth if possible, or speaks fallback          |
+| “Check battery level”      | Speaks battery percentage and charging status               |
+| “What’s my network status” | Speaks Wi-Fi or Mobile Data connection info                 |
+| “N F C status”             | Speaks current NFC state or opens settings if not supported |
+
+---
+
+## 🛠️ How to Run
+
+1. Clone repo
+
+   ```bash
+   git clone https://github.com/<your-username>/AI-System-Control-App.git
+   cd AI-System-Control-App
+   ```
+
+2. Open project in **Android Studio** or **VS Code (with Android SDK)**.
+
+3. Build & Run the app on a **real device** (recommended for Bluetooth/NFC).
+
+4. Grant all permissions when prompted:
+
+   * Record audio (for SpeechRecognizer)
+   * Bluetooth / NFC / Notifications
+
+5. Tap the 🎤 **Voice Command** button and speak your command!
+
+---
+
+## 🚫 Android 12+ Bluetooth Limitation
+
+> As of Android 12, Google restricts apps from toggling Bluetooth ON/OFF programmatically.
+> This app handles it gracefully — notifying the user via voice and opening Bluetooth Settings automatically when needed.
+
+---
+
+## ✅ Outcome
+
+* Modular NLP parser and orchestrator working end-to-end
+* Full integration between Voice → NLP → System Action → Voice Response
+* Bluetooth logic adapted to Android 12+ compliance
+* Ready foundation for **multi-intent parsing (Week 3)**
+
+---
+
+## 🔜 Next Steps (Month 3 — Week 3)
+
+| Feature                    | Description                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| 🧠 **Multi-Intent Parser** | Handle compound voice commands like “Turn off Bluetooth and tell battery level.” |
+| 💬 **Conversational AI**   | Add follow-ups (“Turn it on”, “What about network?”).                            |
+| ⚡ **Smart Context Layer**  | Maintain memory of previous command for contextual replies.                      |
+
+---
+
+## 📦 Suggested Git Commit
+
+```bash
+git add .
+git commit -m "Month 3 Week 2: Added IntentParser & CommandOrchestrator with intelligent Bluetooth handling (voice-based control)"
+git push origin main
 ```
 
 ---
 
-## 🏁 **Expected Outcome**
+**Developed by:** 💡 *Ramsai (Bittu)*
+**Project:** AI-Powered System Control App for Android
+**Phase:** 1 | **Module:** Voice + NLP Command Layer
+**Status:** ✅ Completed (Month 3 Week 2)
 
-✅ App now “understands” commands contextually:
-
-* “Turn off Bluetooth” → Bluetooth off
-* “Turn on Bluetooth” → Opens Bluetooth settings
-* “Check battery level” → Speaks battery percentage
-* “Network status” → Reports Wi-Fi/Mobile data
-* Unrecognized → “Sorry, I didn’t understand that.”
+```
 
 ---
 
-## 🎓 **Learning Achieved**
-
-* Implemented a **mini NLP pipeline** using simple text parsing + Regex
-* Built a **command orchestration layer** for routing logic
-* Practiced **modular architecture** (Command Pattern)
-* Added **fallbacks** for unknown inputs
-
----
-
-Would you like me to generate the **ready-to-use code integration** (all necessary updates to `MainActivity.java` + both helper classes inside `/utils/`) as a single working set for your Week 2 milestone?
-This version will compile and run directly in your current project.
+Would you like me to generate a **GitHub release description** version next (for your “Releases” tab) with emojis, version tag like `v1.2.0`, and short highlights for users?
+```
