@@ -51,30 +51,70 @@ This release adds voice interaction (Speech-to-Text and Text-to-Speech) and a si
 
 ## 🧩 Project Structure (relevant files)
 ```
-
-MyAndroidApp/
-├── app/
-│ ├── src/main/java/com/example/
-│ │ ├── MainActivity.java
-│ │ ├── SecondActivity.java
-│ │ └── utils/
-│ │ ├── IntentParser.java
-│ │ ├── CommandOrchestrator.java
-│ │ ├── UsageStatsHelper.java
-│ │ ├── NetworkHelper.java
-│ │ ├── NotificationHelper.java
-│ │ └── ...other utils...
-│ ├── src/main/res/layout/
-│ │ ├── activity_main.xml
-│ │ ├── card_bluetooth.xml
-│ │ ├── card_nfc.xml
-│ │ ├── card_battery.xml
-│ │ ├── card_network.xml
-│ │ └── card_usage.xml
-│ ├── src/main/AndroidManifest.xml
-│ └── build.gradle
+📁 AI_Powered_System_Control_App/
+├── 📁 app/
+│   ├── 📁 build/
+│   ├── 📁 libs/
+│   ├── 📁 src/
+│   │   ├── 📁 main/
+│   │   │   ├── 📁 java/
+│   │   │   │   └── 📁 com/
+│   │   │   │       └── 📁 example/
+│   │   │   │           ├── MainActivity.java
+│   │   │   │           ├── SecondActivity.java
+│   │   │   │           └── 📁 utils/
+│   │   │   │               ├── AlertManager.java
+│   │   │   │               ├── CommandOrchestrator.java
+│   │   │   │               ├── DashboardAdapter.java
+│   │   │   │               ├── IntentParser.java
+│   │   │   │               ├── LogEvent.java
+│   │   │   │               ├── LogManager.java
+│   │   │   │               ├── LogSyncWorker.java
+│   │   │   │               ├── NetworkHelper.java
+│   │   │   │               ├── NotificationHelper.java
+│   │   │   │               ├── ReminderReceiver.java
+│   │   │   │               ├── SchedulerHelper.java
+│   │   │   │               ├── SmartSuggestions.java
+│   │   │   │               ├── UsageStatsHelper.java
+│   │   │   │               └── ... (other utility classes)
+│   │   │   ├── 📁 res/
+│   │   │   │   ├── 📁 layout/
+│   │   │   │   │   ├── activity_main.xml
+│   │   │   │   │   ├── activity_second.xml
+│   │   │   │   │   ├── card_battery.xml
+│   │   │   │   │   ├── card_bluetooth.xml
+│   │   │   │   │   ├── card_network.xml
+│   │   │   │   │   ├── card_nfc.xml
+│   │   │   │   │   ├── card_usage.xml
+│   │   │   │   │   └── dashboard_card.xml
+│   │   │   │   ├── 📁 drawable/
+│   │   │   │   │   ├── ic_launcher_background.xml
+│   │   │   │   │   ├── ic_launcher_foreground.xml
+│   │   │   │   │   └── custom_icons.xml
+│   │   │   │   ├── 📁 values/
+│   │   │   │   │   ├── colors.xml
+│   │   │   │   │   ├── strings.xml
+│   │   │   │   │   ├── styles.xml
+│   │   │   │   │   └── themes.xml
+│   │   │   │   └── 📁 mipmap/
+│   │   │   │       ├── ic_launcher.png
+│   │   │   │       └── ic_launcher_round.png
+│   │   │   ├── AndroidManifest.xml
+│   │   │   └── proguard-rules.pro
+│   │   ├── 📁 test/
+│   │   └── 📁 androidTest/
+│   ├── build.gradle
+│   └── proguard-rules.pro
+├── 📁 gradle/
+│   └── wrapper/
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
 ├── build.gradle
-└── README.md <-- (this file)
+├── gradlew
+├── gradlew.bat
+├── settings.gradle
+└── README.md
+
 ````
 
 ---
