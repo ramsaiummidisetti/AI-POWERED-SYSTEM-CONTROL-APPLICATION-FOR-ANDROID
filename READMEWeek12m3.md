@@ -50,7 +50,6 @@ This release adds voice interaction (Speech-to-Text and Text-to-Speech) and a si
 ---
 
 ## 🧩 Project Structure (relevant files)
-```
 📁 AI_Powered_System_Control_App/
 ├── 📁 app/
 │   ├── 📁 build/
@@ -114,8 +113,6 @@ This release adds voice interaction (Speech-to-Text and Text-to-Speech) and a si
 ├── gradlew.bat
 ├── settings.gradle
 └── README.md
-
-````
 
 ---
 
