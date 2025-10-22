@@ -54,28 +54,27 @@ This release adds voice interaction (Speech-to-Text and Text-to-Speech) and a si
 
 MyAndroidApp/
 ├── app/
-│   ├── src/main/java/com/example/
-│   │   ├── MainActivity.java
-│   │   ├── SecondActivity.java
-│   │   └── utils/
-│   │       ├── IntentParser.java
-│   │       ├── CommandOrchestrator.java
-│   │       ├── UsageStatsHelper.java
-│   │       ├── NetworkHelper.java
-│   │       ├── NotificationHelper.java
-│   │       └── ...other utils...
-│   ├── src/main/res/layout/
-│   │   ├── activity_main.xml
-│   │   ├── card_bluetooth.xml
-│   │   ├── card_nfc.xml
-│   │   ├── card_battery.xml
-│   │   ├── card_network.xml
-│   │   └── card_usage.xml
-│   ├── src/main/AndroidManifest.xml
-│   └── build.gradle
+│ ├── src/main/java/com/example/
+│ │ ├── MainActivity.java
+│ │ ├── SecondActivity.java
+│ │ └── utils/
+│ │ ├── IntentParser.java
+│ │ ├── CommandOrchestrator.java
+│ │ ├── UsageStatsHelper.java
+│ │ ├── NetworkHelper.java
+│ │ ├── NotificationHelper.java
+│ │ └── ...other utils...
+│ ├── src/main/res/layout/
+│ │ ├── activity_main.xml
+│ │ ├── card_bluetooth.xml
+│ │ ├── card_nfc.xml
+│ │ ├── card_battery.xml
+│ │ ├── card_network.xml
+│ │ └── card_usage.xml
+│ ├── src/main/AndroidManifest.xml
+│ └── build.gradle
 ├── build.gradle
-└── README.md   <-- (this file)
-
+└── README.md <-- (this file)
 ````
 
 ---
