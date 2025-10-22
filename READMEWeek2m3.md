@@ -4,6 +4,7 @@ It’s perfectly formatted to upload directly to your **GitHub repository**.
 ---
 
 ````markdown
+````
 # 🤖 AI-Powered System Control App — Phase 1  
 ### 📅 Month 3, Week 2 — Intent Parsing & Command Orchestration
 
@@ -11,7 +12,7 @@ It’s perfectly formatted to upload directly to your **GitHub repository**.
 **Platform:** Android (Java, VS Code / Android Studio)  
 **Focus:** Natural voice-driven system control with smart intent routing  
 
----
+
 
 ## 🧭 Overview
 
@@ -22,7 +23,7 @@ The app can now **understand**, **interpret**, and **respond** to commands like:
 
 while handling Android’s Bluetooth restrictions safely and intelligently.
 
----
+
 
 ## 🎯 Goals
 
@@ -33,7 +34,7 @@ while handling Android’s Bluetooth restrictions safely and intelligently.
 | 🔹 **Smart Fallbacks** | Handle system restrictions gracefully, with natural TTS feedback. |
 | 🔹 **Voice Command Integration** | Connect parser and orchestrator to the SpeechRecognizer (from Week 1). |
 
----
+
 
 ## 🧠 Learning Outcomes
 
@@ -42,7 +43,6 @@ while handling Android’s Bluetooth restrictions safely and intelligently.
 - Learned Android system control constraints (e.g., Bluetooth enable restrictions on Android 12+).
 - Practiced **runtime permissions**, **cross-class communication**, and **TTS-based feedback loops**.
 
----
 
 ## ✅ Features Implemented
 
@@ -60,7 +60,7 @@ while handling Android’s Bluetooth restrictions safely and intelligently.
   - **Direct toggle** on Android ≤ 11
   - **Opens Bluetooth settings** on Android ≥ 12 with TTS explanation
 
----
+
 
 ## ⚙️ Updated Bluetooth Voice Logic
 
@@ -90,15 +90,16 @@ private void handleBluetooth(String action) {
         speak("Bluetooth is currently " + (main.isBluetoothOn() ? "on" : "off"));
     }
 }
-````
+
 
 This ensures the AI system reacts smartly to Android’s version rules while providing natural voice feedback.
 
 ---
-
+````
 ## 🧩 Project Structure (Terminal View)
 
 ```bash
+````
 📁 AI_Powered_System_Control_App/
 ├── 📁 app/
 │   ├── 📁 src/
@@ -130,7 +131,7 @@ This ensures the AI system reacts smartly to Android’s version rules while pro
 ```
 
 ---
-
+````
 ## 🧾 How It Works (Summary)
 
 1. **Speech-to-Text:**
