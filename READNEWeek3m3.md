@@ -240,3 +240,86 @@ By the end of Week 3:
 ---
 
 Would you like me to now generate the **full Week 3 `README.md` (ready-to-upload GitHub file)** in the same style as your previous ones — including project tree, goal, learning outcomes, implementation summary, and sample commands?
+Perfect Bittu 👏 — now that your **Month 3 Week 3 (Predictive Context + Multi-Modal Input)** build is complete and running, let’s add a solid **test plan** (as you’d include before GitHub upload).
+
+Below are **practical test cases based directly on your current MainActivity, GestureHandler, and ContextManager code logic** — covering Bluetooth, Network, Battery, NFC, Voice, Gestures, and Context prediction.
+
+---
+
+## ✅ **Test Cases – AI Powered System Control App**
+
+**Module:** Context Awareness & Multi-Modal Interaction
+**Phase:** 1 → Month 3 → Week 3
+
+---
+
+### 🧠 **A. Voice Command Tests**
+
+| **Test ID** | **Input (Voice Command)**    | **Expected Behavior**                                                     | **Pass Criteria**                                 |
+| ----------- | ---------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------- |
+| VC-01       | “Check battery”              | App retrieves `getBatteryInfo()` and speaks battery % and charging state. | Speech: “Your battery level is 78% and charging.” |
+| VC-02       | “Bluetooth status”           | Checks `bluetoothAdapter.isEnabled()` and speaks result.                  | “Bluetooth is on” or “Bluetooth is off.”          |
+| VC-03       | “Turn on Bluetooth”          | Enables Bluetooth silently via `enable()` (no settings intent).           | Bluetooth toggles ON and status card updates.     |
+| VC-04       | “Turn off Bluetooth”         | Disables Bluetooth silently.                                              | Bluetooth toggles OFF and card shows “Off.”       |
+| VC-05       | “Network status”             | Runs `NetworkHelper.getNetworkStatus()` or fallback.                      | “Wi-Fi connected” or “Mobile data connected.”     |
+| VC-06       | “NFC status”                 | Checks `NfcAdapter.getDefaultAdapter()` and state.                        | “NFC is on” / “NFC not supported.”                |
+| VC-07       | “Check context”              | Uses ContextManager (charging + motion).                                  | “You are currently charging and stationary.”      |
+| VC-08       | Unknown command: “Play song” | Fallback to error handling.                                               | “Sorry, I didn’t understand that.”                |
+
+---
+
+### 👆 **B. Gesture Tests**
+
+| **Test ID** | **Gesture Performed** | **Expected Behavior**                              | **Pass Criteria**                                               |
+| ----------- | --------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| G-01        | Swipe Right           | Triggers refresh dashboard.                        | Speaks “Refreshing dashboard.”                                  |
+| G-02        | Swipe Left            | Switches to analytics or alternate dashboard view. | Speaks “Switching to analytics view.”                           |
+| G-03        | Double-tap            | Triggers context detection (driving mode).         | Speaks “Detected context: Driving.”                             |
+| G-04        | Long Press            | Activates quick voice mode (starts listening).     | Microphone icon activates or TTS: “Listening for your command.” |
+
+---
+
+### 🚗 **C. Context Prediction Tests**
+
+| **Test ID** | **Context Trigger**                              | **Expected Behavior**          | **Pass Criteria**                             |
+| ----------- | ------------------------------------------------ | ------------------------------ | --------------------------------------------- |
+| C-01        | Device connected to charger                      | Detects charging state.        | Speaks “Device charging mode active.”         |
+| C-02        | Accelerometer detects motion (simulated driving) | ContextManager → driving mode. | “You’re driving, hands-free enabled.”         |
+| C-03        | Idle + unplugged                                 | Stationary + normal context.   | “You are currently stationary.”               |
+| C-04        | Low battery (below 20%)                          | Suggests power saving.         | “Battery low — consider enabling saver mode.” |
+
+---
+
+### 💬 **D. Combined Multi-Modal Tests**
+
+| **Test ID** | **Combination**                        | **Expected Behavior**                             | **Pass Criteria**                                                         |
+| ----------- | -------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------- |
+| M-01        | Say “Turn off Bluetooth” while driving | Orchestrator checks context → denies action.      | “You’re driving, better keep Bluetooth on for hands-free.”                |
+| M-02        | Swipe right + say “Battery status”     | Runs both gesture and voice actions concurrently. | Dashboard refreshes, then speaks battery info.                            |
+| M-03        | Double-tap + say “Network status”      | Gesture sets context + runs voice logic.          | “Detected context: Driving.” → “Network status is Mobile data connected.” |
+
+---
+
+### 🧩 **E. UI Card Update Tests**
+
+| **Test ID** | **Action**                                 | **Expected Behavior**                                   | **Pass Criteria**                                        |
+| ----------- | ------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------- |
+| UI-01       | Toggle Bluetooth manually                  | RecyclerView updates card title “Bluetooth” → “On/Off.” | Card refreshes within 1s.                                |
+| UI-02       | Refresh dashboard (via gesture or restart) | All cards reload updated info.                          | All statuses (battery, network, etc.) updated correctly. |
+
+---
+
+### 🧾 **Test Environment**
+
+| Component      | Version / Tool                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------- |
+| Android Studio | Ladybug / Hedgehog 2024.x                                                                            |
+| Android SDK    | API 33+                                                                                              |
+| Emulator       | Pixel 6 (Android 13+)                                                                                |
+| Physical Test  | Optional: Android device with NFC + Bluetooth                                                        |
+| Permissions    | `BLUETOOTH_CONNECT`, `BLUETOOTH_ADMIN`, `RECORD_AUDIO`, `ACCESS_NETWORK_STATE`, `POST_NOTIFICATIONS` |
+
+---
+
+Would you like me to generate this in a **GitHub-ready file format (`TEST_PLAN_WEEK3.md`)** next — with markdown table formatting and section headers?
+It’ll look clean in your repo alongside the Week 3 README.
