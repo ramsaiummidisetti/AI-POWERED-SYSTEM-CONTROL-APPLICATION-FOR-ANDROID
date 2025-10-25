@@ -2,7 +2,11 @@ package com.example.utils;
 
 import android.content.Context;
 import android.speech.tts.TextToSpeech;
+
 import android.widget.Toast;
+import android.content.Intent;
+import android.provider.AlarmClock;
+import com.example.utils.PreferenceHelper;
 
 import com.example.MainActivity;
 
@@ -32,9 +36,51 @@ public class CommandOrchestrator {
             case "nfc":
                 speak("NFC check complete.");
                 break;
-            default:
-                speak("Sorry, I didn't understand that command.");
-        }
+              // 🔹 NEW COMMANDS — VC-06 → VC-10
+        case "alarm":
+            try {
+                android.content.Intent alarmIntent = new android.content.Intent(android.provider.AlarmClock.ACTION_SET_ALARM);
+                alarmIntent.putExtra(android.provider.AlarmClock.EXTRA_HOUR, 7);
+                alarmIntent.putExtra(android.provider.AlarmClock.EXTRA_MINUTES, 0);
+                alarmIntent.putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "AI Assistant Alarm");
+                main.startActivity(alarmIntent);
+                speak("Setting an alarm for 7 AM.");
+            } catch (Exception e) {
+                speak("Sorry, I couldn't set the alarm.");
+            }
+            break;
+
+        case "darkmode":
+            new PreferenceHelper(main).setThemeMode("dark");
+            speak("Dark mode enabled.");
+            main.recreate();
+            break;
+
+        case "lightmode":
+            new PreferenceHelper(main).setThemeMode("light");
+            speak("Light mode enabled.");
+            main.recreate();
+            break;
+
+        case "enablevoice":
+            new PreferenceHelper(main).setTTSEnabled(true);
+            speak("Voice feedback enabled.");
+            break;
+
+        case "mutevoice":
+            new PreferenceHelper(main).setTTSEnabled(false);
+            Toast.makeText(main, "Voice feedback disabled.", Toast.LENGTH_SHORT).show();
+            break;
+
+        case "exit":
+            speak("Closing app, goodbye!");
+            new android.os.Handler().postDelayed(() -> main.finishAffinity(), 1500);
+            break;
+
+        default:
+            speak("Sorry, I didn't understand that command.");
+    }
+           
     }
 
     private void handleBluetooth(String action) {
