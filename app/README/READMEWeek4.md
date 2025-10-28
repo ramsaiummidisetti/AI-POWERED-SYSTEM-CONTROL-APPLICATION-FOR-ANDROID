@@ -131,10 +131,10 @@ Bluetooth Integration Snippet (RecyclerView-ready)
 ```
 ```
 // 1️⃣ Declare Bluetooth adapter at class level
-
+```
 private BluetoothAdapter bluetoothAdapter;
 ```
-```
+
 // 2️⃣ Initialize Bluetooth in onCreate()
 ```
 bluetoothAdapter = BluetoothAdapter.getDefaultAdapter(); // get device Bluetooth adapter
