@@ -22,7 +22,7 @@ Build a **Dashboard** that shows **App Usage**, **Battery Info**, **Network Stat
 
 ## 📂 Project Structure
 
-
+```
 app/src/main/java/com/example/
 │── MainActivity.java
 │── utils/
@@ -36,7 +36,7 @@ app/src/main/java/com/example/
 │ ├── SchedulerHelper.java
 │ └── NotificationHelper.java
 
-
+```
 ---
 
 ## 🔧 Key Code Snippets
