@@ -128,6 +128,7 @@ Forms the base for expanding into real-time monitoring in future weeks.
 
 
 Bluetooth Integration Snippet (RecyclerView-ready)
+```
 // 1️⃣ Declare Bluetooth adapter at class level
 private BluetoothAdapter bluetoothAdapter;
 
@@ -170,7 +171,7 @@ private void toggleBluetooth() {
         }
     }, 500);
 }
-
+```
 Explanation of the Code
 
 BluetoothAdapter
