@@ -42,7 +42,7 @@ app/src/main/java/com/example/
 ## 🔧 Key Code Snippets
 
 ### RecyclerView Setup in `MainActivity.java`
-```java
+java
 RecyclerView recyclerView = findViewById(R.id.dashboardRecyclerView);
 recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
@@ -347,6 +347,5 @@ Commit message suggestion:
 Phase 1 - Month 2 Week 4 ✅ Added Bluetooth & NFC Dashboard Integration with Auto-Refresh and UI Cohesion
 
 
----
 
 Would you like me to package this as a **ready-to-upload `README.md` file (downloadable)** or generate th
