@@ -129,17 +129,23 @@ Forms the base for expanding into real-time monitoring in future weeks.
 
 Bluetooth Integration Snippet (RecyclerView-ready)
 ```
+```
 // 1️⃣ Declare Bluetooth adapter at class level
+
 private BluetoothAdapter bluetoothAdapter;
-
+```
+```
 // 2️⃣ Initialize Bluetooth in onCreate()
+```
 bluetoothAdapter = BluetoothAdapter.getDefaultAdapter(); // get device Bluetooth adapter
-
+```
 // 3️⃣ Add "Bluetooth" card to RecyclerView data
+```
 titles.add("Bluetooth");
 details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off");
-
+```
 // 4️⃣ Handle click on Bluetooth card inside RecyclerView adapter
+```
 adapter = new DashboardAdapter(titles, details, (title, position) -> {
     if (title.equals("Bluetooth")) {
         toggleBluetooth();
@@ -148,8 +154,9 @@ adapter = new DashboardAdapter(titles, details, (title, position) -> {
     }
 });
 recyclerView.setAdapter(adapter);
-
+```
 // 5️⃣ Toggle Bluetooth and update RecyclerView dynamically
+```
 private void toggleBluetooth() {
     if (bluetoothAdapter == null) return;
 
