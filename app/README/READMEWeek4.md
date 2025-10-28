@@ -42,7 +42,7 @@ app/src/main/java/com/example/
 ## 🔧 Key Code Snippets
 
 ### RecyclerView Setup in `MainActivity.java`
-java
+```java
 RecyclerView recyclerView = findViewById(R.id.dashboardRecyclerView);
 recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
@@ -72,8 +72,9 @@ DashboardAdapter adapter = new DashboardAdapter(dashboardItems, item -> {
     }
 });
 recyclerView.setAdapter(adapter);
-
+```
 Dashboard Card Layout (item_dashboard_card.xml)
+```
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -96,7 +97,7 @@ Dashboard Card Layout (item_dashboard_card.xml)
         android:text="Details go here"
         android:textSize="14sp"/>
 </LinearLayout>
-
+```
 ▶️ How to Run & Test
 
 Run the app → Dashboard loads with 4 cards.
