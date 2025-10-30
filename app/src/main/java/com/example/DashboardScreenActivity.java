@@ -5,7 +5,6 @@ import android.nfc.NfcAdapter;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -22,6 +21,12 @@ import android.content.Context;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.app.AppOpsManager;
+import android.content.pm.ApplicationInfo;
+import android.os.Process;
+import android.content.DialogInterface;
+import androidx.appcompat.app.AlertDialog;
+
 public class DashboardScreenActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
@@ -32,6 +37,29 @@ public class DashboardScreenActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 🟡 Step 1 — Check usage permission before showing dashboard
+        if (!hasUsageStatsPermission()) {
+            showUsageAccessDialog();
+            return;
+        }
+
+        // 🟢 Step 2 — Continue normal dashboard setup
+        setupDashboard();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // If user granted permission after returning from settings, continue setup
+        if (hasUsageStatsPermission() && recyclerView == null) {
+            setupDashboard();
+        }
+    }
+
+    // 🧩 Step 3 — Move dashboard UI setup into a separate method
+    private void setupDashboard() {
         setContentView(R.layout.activity_dashboard_screen);
 
         recyclerView = findViewById(R.id.dashboardRecyclerView);
@@ -76,6 +104,36 @@ public class DashboardScreenActivity extends AppCompatActivity {
         refreshDashboard();
     }
 
+    // ✅ Check usage stats permission
+    private boolean hasUsageStatsPermission() {
+        try {
+            AppOpsManager appOps = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
+            ApplicationInfo appInfo = getPackageManager().getApplicationInfo(getPackageName(), 0);
+            int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    appInfo.uid, appInfo.packageName);
+            return (mode == AppOpsManager.MODE_ALLOWED);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ✅ Show permission dialog if missing
+    private void showUsageAccessDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Permission Needed")
+                .setMessage("To show app usage details, please allow Usage Access for this app.")
+                .setPositiveButton("Grant Access", (DialogInterface dialog, int which) -> {
+                    startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                })
+                .setNegativeButton("Cancel", (DialogInterface dialog, int which) -> {
+                    Toast.makeText(this, "Usage Access denied", Toast.LENGTH_SHORT).show();
+                    finish();
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    // ✅ Refresh dashboard data
     private void refreshDashboard() {
         try {
             details.set(0, UsageStatsHelper.getUsageSummary(this));
@@ -105,6 +163,7 @@ public class DashboardScreenActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
+    // ✅ Battery info
     private String getBatteryInfo() {
         Intent batteryStatus = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         if (batteryStatus == null) return "Battery unavailable";
@@ -114,6 +173,7 @@ public class DashboardScreenActivity extends AppCompatActivity {
         return percent + "%";
     }
 
+    // ✅ Network status fallback
     private String getNetworkStatusFallback() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm == null) return "Unknown";
@@ -126,6 +186,7 @@ public class DashboardScreenActivity extends AppCompatActivity {
         return "Network unavailable";
     }
 
+    // ✅ Toggle Bluetooth on/off
     private void toggleBluetooth() {
         if (bluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();

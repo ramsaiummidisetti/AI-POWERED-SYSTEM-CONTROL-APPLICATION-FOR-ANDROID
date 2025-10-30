@@ -27,8 +27,13 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import android.nfc.NfcAdapter;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -81,6 +86,12 @@ public class MainActivity extends AppCompatActivity {
     // private TextToSpeech textToSpeech;
     private static final int REQ_CODE_SPEECH_INPUT = 100;
 
+  
+    private LinearLayout voiceFeedbackContainer;
+    private ScrollView voiceScrollView;
+    private Queue<String> feedbackQueue = new LinkedList<>();
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,7 +106,9 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
      
-
+    
+        voiceFeedbackContainer = findViewById(R.id.voiceFeedbackContainer);
+        voiceScrollView = findViewById(R.id.voiceScrollView);
 
         contextManager = new ContextManager(this);
 
@@ -119,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
         }));
 
         // inside onCreate() after setContentView(...)
-        Button refreshButton = findViewById(R.id.btn_refresh);
+        // Button refreshButton = findViewById(R.id.btn_refresh);
         // refreshButton.setOnClickListener(v -> refreshDashboard());
 
             // 🎤 Voice button
@@ -277,7 +290,7 @@ public class MainActivity extends AppCompatActivity {
         // };
 
         // Start the first auto-refresh
-        autoRefreshHandler.postDelayed(autoRefreshRunnable, 60000);
+        // autoRefreshHandler.postDelayed(autoRefreshRunnable, 60000);
 
         // ✅ Schedule background work
         WorkManager.getInstance(this).enqueue(new OneTimeWorkRequest.Builder(LogSyncWorker.class).build());
@@ -420,16 +433,11 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(needed.toArray(new String[0]), 101);
         }
 
-        // Usage Stats
-        if (!hasUsageStatsPermission()) {
-            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-        }
-
         // Notifications (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(this,
                         Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 102);
+                     requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 102);
         }
     }
 
@@ -538,9 +546,15 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == 200 && resultCode == RESULT_OK && data != null) {
             ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             if (result != null && !result.isEmpty()) {
+       
                 String command = result.get(0).toLowerCase(Locale.ROOT);
                 IntentParser.ParsedIntent intent = IntentParser.parse(command);
                 executeIntent(intent, command);
+
+                   // 🟩 PLACE THIS HERE
+                updateVoiceFeedback("User", command);
+
+                handleVoiceCommand(command);
 
             }
         }
@@ -664,6 +678,9 @@ public class MainActivity extends AppCompatActivity {
         if (text == null || text.trim().isEmpty()) return;
         android.util.Log.i("VoiceOutput", text);
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+
+            // 🟩 Add this line to show assistant reply in text area
+            updateVoiceFeedback("Assistant", text);
     }
 
 
@@ -710,5 +727,36 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         return prefs.getBoolean("dark_mode", false);
     }
+    
+   private void updateVoiceFeedback(String sender, String message) {
+            if (voiceFeedbackContainer == null) return;
+
+            // Keep only last 5 messages
+            if (feedbackQueue.size() >= 5) {
+                feedbackQueue.poll(); // remove oldest
+                voiceFeedbackContainer.removeViewAt(0);
+            }
+
+            // Create a new TextView for each feedback
+            TextView textView = new TextView(this);
+            textView.setText(sender + ": " + message);
+            textView.setTextSize(16f);
+
+            // 🎨 Color coding
+            if (sender.equalsIgnoreCase("User")) {
+                textView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+            } else if (sender.equalsIgnoreCase("Assistant")) {
+                textView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+            } else {
+                textView.setTextColor(getResources().getColor(android.R.color.black));
+            }
+
+            // Add message and update scroll
+            feedbackQueue.add(sender + ": " + message);
+            voiceFeedbackContainer.addView(textView);
+
+            // Scroll to bottom
+            voiceScrollView.post(() -> voiceScrollView.fullScroll(ScrollView.FOCUS_DOWN));
+        }
 
 }

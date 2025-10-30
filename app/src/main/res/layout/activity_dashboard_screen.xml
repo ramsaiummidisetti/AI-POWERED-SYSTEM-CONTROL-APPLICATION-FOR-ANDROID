@@ -11,7 +11,7 @@
         android:id="@+id/tv_dashboard_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="System Dashboard"
+        android:text="System Control Center"
         android:textSize="22sp"
         android:textStyle="bold"
         android:gravity="center"

@@ -14,7 +14,7 @@ public class SecondActivity extends AppCompatActivity {
         String userName = getIntent().getStringExtra("USER_NAME");
 
         if (userName != null) {
-            textView.setText("Hello, " + userName + "!");
+            textView.setText("" + userName);
         }
     }
 }

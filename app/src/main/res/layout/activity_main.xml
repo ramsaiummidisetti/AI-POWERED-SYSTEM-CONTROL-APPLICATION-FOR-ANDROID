@@ -36,25 +36,41 @@
 
  
      <!-- ✅ Refresh Button -->
-    <Button
+    <!-- <Button
         android:id="@+id/btn_refresh"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Refresh Status"
         android:backgroundTint="@color/teal_700"
         android:textColor="@android:color/white"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="12dp" /> -->
 
        <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_voice"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Voice" />
+      <ScrollView
+    android:id="@+id/voiceScrollView"
+    android:layout_width="match_parent"
+    android:layout_height="150dp"
+    android:layout_margin="10dp"
+    android:background="#E8EAF6"
+    android:padding="8dp"
+    android:scrollbars="vertical">
+
+    <LinearLayout
+        android:id="@+id/voiceFeedbackContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+</ScrollView>
+
     <Button
     android:id="@+id/btn_open_dashboard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:text="Open Dashboard"
+    android:text="System Control Center"
     android:textAllCaps="false"
     android:layout_marginTop="16dp"
     android:backgroundTint="@color/purple_500"
