@@ -22,7 +22,7 @@ Build a **Dashboard** that shows **App Usage**, **Battery Info**, **Network Stat
 
 ## 📂 Project Structure
 
-
+```
 app/src/main/java/com/example/
 │── MainActivity.java
 │── utils/
@@ -36,7 +36,7 @@ app/src/main/java/com/example/
 │ ├── SchedulerHelper.java
 │ └── NotificationHelper.java
 
-
+```
 ---
 
 ## 🔧 Key Code Snippets
@@ -72,8 +72,9 @@ DashboardAdapter adapter = new DashboardAdapter(dashboardItems, item -> {
     }
 });
 recyclerView.setAdapter(adapter);
-
+```
 Dashboard Card Layout (item_dashboard_card.xml)
+```
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -96,7 +97,7 @@ Dashboard Card Layout (item_dashboard_card.xml)
         android:text="Details go here"
         android:textSize="14sp"/>
 </LinearLayout>
-
+```
 ▶️ How to Run & Test
 
 Run the app → Dashboard loads with 4 cards.
@@ -127,17 +128,24 @@ Forms the base for expanding into real-time monitoring in future weeks.
 
 
 Bluetooth Integration Snippet (RecyclerView-ready)
+```
+```
 // 1️⃣ Declare Bluetooth adapter at class level
+```
 private BluetoothAdapter bluetoothAdapter;
+```
 
 // 2️⃣ Initialize Bluetooth in onCreate()
+```
 bluetoothAdapter = BluetoothAdapter.getDefaultAdapter(); // get device Bluetooth adapter
-
+```
 // 3️⃣ Add "Bluetooth" card to RecyclerView data
+```
 titles.add("Bluetooth");
 details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off");
-
+```
 // 4️⃣ Handle click on Bluetooth card inside RecyclerView adapter
+```
 adapter = new DashboardAdapter(titles, details, (title, position) -> {
     if (title.equals("Bluetooth")) {
         toggleBluetooth();
@@ -146,8 +154,9 @@ adapter = new DashboardAdapter(titles, details, (title, position) -> {
     }
 });
 recyclerView.setAdapter(adapter);
-
+```
 // 5️⃣ Toggle Bluetooth and update RecyclerView dynamically
+```
 private void toggleBluetooth() {
     if (bluetoothAdapter == null) return;
 
@@ -169,7 +178,7 @@ private void toggleBluetooth() {
         }
     }, 500);
 }
-
+```
 Explanation of the Code
 
 BluetoothAdapter
@@ -347,6 +356,5 @@ Commit message suggestion:
 Phase 1 - Month 2 Week 4 ✅ Added Bluetooth & NFC Dashboard Integration with Auto-Refresh and UI Cohesion
 
 
----
 
 Would you like me to package this as a **ready-to-upload `README.md` file (downloadable)** or generate th
