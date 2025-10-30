@@ -15,7 +15,6 @@ public class CommandOrchestrator {
     private final Context context;
     private final TextToSpeech tts;
     private final MainActivity main;
-
     public CommandOrchestrator(Context context, TextToSpeech tts, MainActivity main) {
         this.context = context;
         this.tts = tts;

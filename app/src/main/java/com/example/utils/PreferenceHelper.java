@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 
 public class PreferenceHelper {
     private static final String PREF_NAME = "user_prefs";
-    private static final String KEY_TTS = "tts_enabled";
+    private static final String KEY_TTS_ENABLED = "tts_enabled";
     private static final String KEY_THEME = "theme_mode";
 
     private final SharedPreferences prefs;
@@ -15,11 +15,12 @@ public class PreferenceHelper {
     }
 
     public void setTTSEnabled(boolean enabled) {
-        prefs.edit().putBoolean(KEY_TTS, enabled).apply();
+        prefs.edit().putBoolean(KEY_TTS_ENABLED, enabled).apply();
     }
 
     public boolean isTTSEnabled() {
-        return prefs.getBoolean(KEY_TTS, true);
+        return prefs.getBoolean(KEY_TTS_ENABLED, true);
+
     }
 
     public void setThemeMode(String mode) {

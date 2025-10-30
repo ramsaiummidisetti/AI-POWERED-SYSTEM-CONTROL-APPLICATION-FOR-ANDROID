@@ -1,48 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/dashboard_item_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    android:foreground="?attr/selectableItemBackground"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="7dp"
-    app:cardUseCompatPadding="true">
+    app:cardCornerRadius="12dp"
+    app:cardElevation="6dp"
+    android:clickable="true"
+    android:foreground="?attr/selectableItemBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:padding="16dp"
         android:orientation="vertical"
-        android:gravity="center"
-        android:padding="16dp">
-        
+        android:gravity="center">
+
         <ImageView
             android:id="@+id/cardIcon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:contentDescription="Card Icon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
             android:src="@android:drawable/ic_menu_info_details"
-            android:tint="@android:color/holo_blue_dark" />
+            android:contentDescription="@string/app_name" />
 
         <TextView
             android:id="@+id/dashboard_item_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Card Title"
-            android:textSize="16sp"
+            android:text="Feature Title"
             android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:gravity="center"/>
+            android:textSize="16sp"
+            android:textColor="@android:color/black" />
 
         <TextView
             android:id="@+id/dashboard_item_detail"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Details here..."
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            android:gravity="center"/>
+            android:text="Feature description"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray" />
+
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+
+</androidx.cardview.widget.CardView>

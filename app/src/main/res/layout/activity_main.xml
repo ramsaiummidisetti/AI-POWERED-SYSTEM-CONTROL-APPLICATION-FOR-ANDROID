@@ -50,6 +50,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Voice" />
+    <Button
+    android:id="@+id/btn_open_dashboard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="Open Dashboard"
+    android:textAllCaps="false"
+    android:layout_marginTop="16dp"
+    android:backgroundTint="@color/purple_500"
+    android:textColor="@android:color/white"
+    android:padding="10dp" />
 
  <!-- Dashboard Cards Section -->
 <androidx.recyclerview.widget.RecyclerView
@@ -59,6 +69,6 @@
     android:padding="8dp"
     android:clipToPadding="false"
     android:scrollbars="none"/>
-<include layout="@layout/card_bluetooth"/>
-<include layout="@layout/card_nfc"/>
+<!-- <include layout="@layout/card_bluetooth"/>
+<include layout="@layout/card_nfc"/> -->
 </LinearLayout>
