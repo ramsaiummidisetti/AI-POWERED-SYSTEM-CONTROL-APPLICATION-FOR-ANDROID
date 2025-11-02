@@ -12,6 +12,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.utils.DashboardAdapter;
 import com.example.utils.NetworkHelper;
 import com.example.utils.UsageStatsHelper;
+import com.example.utils.VoiceHelper;
+
 import android.bluetooth.BluetoothAdapter;
 import android.provider.Settings;
 import android.net.ConnectivityManager;
@@ -37,7 +39,9 @@ public class DashboardScreenActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+         VoiceHelper.init(this);
+       // Speak when Dashboard opens
+        VoiceHelper.speak(this, "System Dashboard opened");
         // 🟡 Step 1 — Check usage permission before showing dashboard
         if (!hasUsageStatsPermission()) {
             showUsageAccessDialog();
@@ -100,8 +104,9 @@ public class DashboardScreenActivity extends AppCompatActivity {
         });
 
         recyclerView.setAdapter(adapter);
+         refreshDashboard();
+        VoiceHelper.speak(this, "System Control Center loaded. Fetching system status.");
 
-        refreshDashboard();
     }
 
     // ✅ Check usage stats permission
@@ -146,6 +151,7 @@ public class DashboardScreenActivity extends AppCompatActivity {
         String net = NetworkHelper.getNetworkStatus(this);
         if (net == null) net = getNetworkStatusFallback();
         details.set(2, net);
+        VoiceHelper.speak(this, "Network status: " + net);
 
         if (bluetoothAdapter != null)
             details.set(3, bluetoothAdapter.isEnabled() ? "On" : "Off");
@@ -161,6 +167,13 @@ public class DashboardScreenActivity extends AppCompatActivity {
             details.set(4, "Off");
 
         adapter.notifyDataSetChanged();
+        String spokenSummary = String.format(
+        "Battery is at %s. Network status: %s. Bluetooth is %s. NFC is %s.",
+        details.get(1), details.get(2), details.get(3), details.get(4)
+        );
+          VoiceHelper.speak(this, "Battery level is " + getBatteryInfo());
+
+
     }
 
     // ✅ Battery info
@@ -188,17 +201,26 @@ public class DashboardScreenActivity extends AppCompatActivity {
 
     // ✅ Toggle Bluetooth on/off
     private void toggleBluetooth() {
-        if (bluetoothAdapter == null) {
+            if (bluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
+            VoiceHelper.speak(this, "Bluetooth not supported on this device");
             return;
         }
-        if (bluetoothAdapter.isEnabled()) {
+            if (bluetoothAdapter.isEnabled()) {
             bluetoothAdapter.disable();
             Toast.makeText(this, "Turning off Bluetooth", Toast.LENGTH_SHORT).show();
+            VoiceHelper.speak(this, "Turning off Bluetooth");
         } else {
             bluetoothAdapter.enable();
             Toast.makeText(this, "Turning on Bluetooth", Toast.LENGTH_SHORT).show();
+            VoiceHelper.speak(this, "Turning on Bluetooth");
         }
         refreshDashboard();
     }
+    @Override
+    protected void onDestroy() {
+        VoiceHelper.shutdown();
+        super.onDestroy();
+    }
+
 }
