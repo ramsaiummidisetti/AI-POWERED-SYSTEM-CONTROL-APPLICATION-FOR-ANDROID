@@ -107,3 +107,96 @@ Next phase will focus on **AI understanding, multi-language support, and smart a
 ---
 
 Would you like me to make a **Phase 1 Final Report (PDF)** version of this summary (well-formatted for submission)?
+
+Perfect, Bittu 💪 — here’s a **clean and complete list** of all the **features implemented so far** and the **voice commands currently working** in your **Command Titan** app (till Phase 1 Month 3 Week 4).
+
+---
+
+## 🧩 **✅ LIST OF FEATURES COMPLETED**
+
+### 🧠 **Core Voice System**
+
+1. 🎤 **Voice Input using SpeechRecognizer**
+   → Takes user speech and converts it to text in real time.
+2. 🔊 **Voice Output using Text-to-Speech (TTS)**
+   → App speaks responses naturally for system queries.
+3. 💬 **Dynamic Voice Feedback Panel**
+   → Shows the last 5 commands and assistant replies in scrollable color-coded view.
+4. 🧩 **Command Recognition Logic**
+   → Detects keywords like “battery”, “Bluetooth”, “Wi-Fi”, “dashboard”, etc.
+5. ❌ **Error Handling**
+   → If unrecognized, assistant replies “Sorry, I didn’t understand that command.”
+
+---
+
+### 🧰 **System Control & Monitoring**
+
+1. 🔋 **Battery Information**
+
+   * Fetches current battery % and status.
+   * Voice + text response (e.g., “Battery is 82 percent”).
+2. 📶 **Network Information**
+
+   * Detects Wi-Fi or Mobile Data connection.
+   * Speaks “Wi-Fi connected” or “No network connection.”
+3. 🔵 **Bluetooth Control**
+
+   * Turns Bluetooth ON/OFF through voice or dashboard tap.
+   * Speaks status update (“Bluetooth is on/off”).
+4. 🧭 **NFC Detection**
+
+   * Checks NFC hardware & status, suggests enabling if off.
+5. 🧮 **App Usage Monitor**
+
+   * Displays app usage stats in the Dashboard screen.
+6. 🪫 **Usage Access Permission Flow**
+
+   * Asks only when opening Dashboard (no startup popup).
+
+---
+
+### 🖥️ **User Interface Enhancements**
+
+1. 🌌 **Space-Universe Background** on Main Screen.
+2. 💠 **Material Design Cards** for inputs, mic, dashboard.
+3. 🪶 **Quick-Access Card** → Instant Dashboard open shortcut.
+4. 🔘 **Custom Mic Button** (🎙️ emoji / image option).
+5. 🎨 **Transparent Cards + Rounded Corners + Shadows.**
+6. 🧩 **MaterialToolbar & Theming (colors.xml + styles.xml)**
+7. 🗯️ **Voice Feedback ScrollView** with color coding.
+8. 📊 **RecyclerView Dashboard** with system info cards.
+9. 🧠 **VoiceHelper Class** shared between activities.
+10. 🧾 **Toast Messages + Voice Output** for system events.
+
+---
+
+## 🎙️ **WORKING VOICE COMMANDS**
+
+> *(You can speak these naturally in English — command detection works via keywords.)*
+
+| 🗣️ **Command Example**                                      | 💬 **Assistant Action / Response**                      |
+| ------------------------------------------------------------ | ------------------------------------------------------- |
+| “What’s my **battery** level” / “How much battery do I have” | Speaks & displays battery %                             |
+| “Is **Bluetooth** on”                                        | Speaks Bluetooth status                                 |
+| “**Turn on** Bluetooth” / “**Turn off** Bluetooth”           | Toggles Bluetooth + voice confirmation                  |
+| “Check **Wi-Fi** status” / “Is internet on”                  | Speaks current network connection                       |
+| “Open **Dashboard**” / “System Control Center”               | Opens DashboardScreenActivity                           |
+| “Tell me **usage stats**”                                    | Reads app usage summary                                 |
+| “What about **NFC**”                                         | Speaks NFC status or asks to enable                     |
+| “Show **system info**”                                       | Summarizes battery, network, and Bluetooth in one reply |
+| “Hi Titan” / “Hello Titan”                                   | Greets user with friendly voice message                 |
+| “Thank you”                                                  | Responds politely                                       |
+| “Exit app” / “Close application”                             | Stops voice and exits main screen                       |
+
+---
+
+## 🧩 **Notes**
+
+* All commands have both **voice and visual feedback** (text in feedback panel).
+* Commands are processed locally (offline voice recognition).
+* Dashboard commands reuse the **same VoiceHelper** — ready for future multi-activity voice sync.
+
+---
+
+Would you like me to make this list into a **formatted table (PDF report)** for your Phase 1 submission — including icons and a “User Guide” section for each command?
+
