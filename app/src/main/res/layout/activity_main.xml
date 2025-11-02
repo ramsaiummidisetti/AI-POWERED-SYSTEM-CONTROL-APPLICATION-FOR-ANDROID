@@ -1,90 +1,186 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
+    android:background="@drawable/space_bg"
     android:padding="16dp">
 
-    <!-- Existing top controls -->
-    <TextView
-        android:id="@+id/welcomeText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Welcome To Command Titan"
-        android:textSize="24sp"
-        android:layout_marginBottom="12dp" />
-
-<EditText
-    android:id="@+id/et_name"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:hint="Enter your name"
-    android:padding="12dp"
-    android:inputType="textPersonName"/>
-    <!-- <com.google.android.material.button.MaterialButton
-        android:id="@+id/themeToggleButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Toggle Theme" /> -->
-
-       <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_submit"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Submit"
-        android:layout_marginEnd="8dp" />
-
- 
-     <!-- ✅ Refresh Button -->
-    <!-- <Button
-        android:id="@+id/btn_refresh"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Refresh Status"
-        android:backgroundTint="@color/teal_700"
-        android:textColor="@android:color/white"
-        android:layout_marginBottom="12dp" /> -->
-
-       <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_voice"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Voice" />
-      <ScrollView
-    android:id="@+id/voiceScrollView"
-    android:layout_width="match_parent"
-    android:layout_height="150dp"
-    android:layout_margin="10dp"
-    android:background="#E8EAF6"
-    android:padding="8dp"
-    android:scrollbars="vertical">
-
     <LinearLayout
-        android:id="@+id/voiceFeedbackContainer"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical" />
+        android:layout_height="wrap_content"    
+        android:orientation="vertical">
+
+        <!-- 🟣 App Bar -->
+        <!-- <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/topAppBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorPrimary"
+            android:title="Command Titan"
+            android:titleTextColor="@android:color/white"
+            android:elevation="4dp" /> -->
+
+        <!-- 🟢 Quick Access Card -->
+        <!-- 🟢 Quick Access Card (moved to top, no gap) -->
+          <com.google.android.material.card.MaterialCardView
+            android:id="@+id/quick_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="0dp"
+            android:layout_marginBottom="8dp"
+            app:cardCornerRadius="0dp"    
+            android:elevation="6dp"
+            android:backgroundTint="@color/blue_500">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="12dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_menu_manage"
+                    android:contentDescription="Quick Access Icon" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Quick Access to System Dashboard"
+                    android:textColor="@android:color/white"
+                    android:textSize="18sp"
+                    android:layout_marginStart="12dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 🟣 Welcome Text -->
+        <TextView
+            android:id="@+id/welcomeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Welcome to Command Titan"
+            android:textAlignment="center"
+            android:textStyle="bold"
+            android:textSize="26sp"
+            android:textColor="@color/white"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp" />
+
+        <!-- 🟩 User Name Input Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/white"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <EditText
+                    android:id="@+id/et_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Ask me"
+                    android:padding="12dp"
+                    android:textColorHint="@color/card_subtext"
+                    android:textColor="@color/black"
+                    android:inputType="textPersonName" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_submit"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Submit"
+                    android:layout_marginTop="10dp"
+                    app:cornerRadius="10dp"
+                    app:backgroundTint="@color/teal_500"
+                    android:textColor="@color/white" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 🎤 Voice Interaction Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/white"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:gravity="center_horizontal">
+
+                <ScrollView
+                    android:id="@+id/voiceScrollView"
+                    android:layout_width="match_parent"
+                    android:layout_height="150dp"
+                    android:layout_marginTop="12dp"
+                    android:background="#F4F6F9"
+                    android:padding="8dp"
+                    android:scrollbars="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/voiceFeedbackContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </ScrollView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_voice"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    app:cornerRadius="40dp"
+                    android:backgroundTint="@color/purple_500"
+                    android:text="🎤"
+                    android:textSize="30sp"
+                    android:textColor="@color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tap to Speak"
+                    android:textSize="14sp"
+                    android:textColor="@color/card_subtext"
+                    android:layout_marginTop="8dp" />
+
+                
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 🧭 System Control Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_open_dashboard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="System Control Center"
+            android:textAllCaps="false"
+            app:cornerRadius="12dp"
+            app:backgroundTint="@color/blue_500"
+            android:textColor="@color/white"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp" />
+
+        <!-- 📊 Dashboard Preview -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/dashboardRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:clipToPadding="false"
+            android:scrollbars="none" />
+    </LinearLayout>
 </ScrollView>
-
-    <Button
-    android:id="@+id/btn_open_dashboard"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="System Control Center"
-    android:textAllCaps="false"
-    android:layout_marginTop="16dp"
-    android:backgroundTint="@color/purple_500"
-    android:textColor="@android:color/white"
-    android:padding="10dp" />
-
- <!-- Dashboard Cards Section -->
-<androidx.recyclerview.widget.RecyclerView
-    android:id="@+id/dashboardRecyclerView"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:padding="8dp"
-    android:clipToPadding="false"
-    android:scrollbars="none"/>
-<!-- <include layout="@layout/card_bluetooth"/>
-<include layout="@layout/card_nfc"/> -->
-</LinearLayout>

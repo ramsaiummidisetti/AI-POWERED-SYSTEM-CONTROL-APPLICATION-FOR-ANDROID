@@ -8,10 +8,20 @@
     <color name="purple_700">#303F9F</color>
     <color name="white">#FFFFFF</color>
     <color name="teal_200">#B2DFDB</color>
- 
     <color name="black">#000000</color>
     <color name="teal_700">#018786</color>
 
+    <!-- 🆕 New Material-style palette -->
+    <color name="md_blue_700">#1565C0</color>
+    <color name="md_teal_500">#009688</color>
+
+    <!-- 🆕 Card and text colors -->
+    <color name="card_bg">#FFFFFF</color>
+    <color name="bg_light">#F6F9FF</color>
+    <color name="text_primary">#0B2545</color>
+    <color name="text_secondary">#607B96</color>
+    <color name="accent">#7C4DFF</color>
+    
     <!-- New colors for cards -->
     <color name="blue_500">#2196F3</color>
     <color name="teal_500">#009688</color>

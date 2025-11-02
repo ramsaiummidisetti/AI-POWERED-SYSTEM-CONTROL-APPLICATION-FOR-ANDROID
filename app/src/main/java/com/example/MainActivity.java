@@ -43,7 +43,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.appcompat.app.AppCompatDelegate;
-
+import android.view.View;
+import android.view.animation.AnimationUtils;
+import com.google.android.material.appbar.MaterialToolbar;
 
 import com.example.utils.LogEvent;
 import com.example.utils.LogManager;
@@ -110,6 +112,28 @@ public class MainActivity extends AppCompatActivity {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
          setContentView(R.layout.activity_main);
+
+         // 🟢 Open Dashboard when clicking quick card
+        View quickCard = findViewById(R.id.quick_card);
+        if (quickCard != null) {
+            quickCard.setOnClickListener(v -> {
+                v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.card_pop));
+                startActivity(new Intent(this, DashboardScreenActivity.class));
+            });
+        }
+
+        // MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
+        // topAppBar.setOnMenuItemClickListener(item -> {
+        //     if (item.getItemId() == R.id.action_theme) {
+        //         boolean isDark = loadThemePreference();
+        //         saveThemePreference(!isDark);
+        //         AppCompatDelegate.setDefaultNightMode(!isDark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+        //         recreate();
+        //         return true;
+        //     }
+        //     return false;
+        // });
+
         
           VoiceHelper.init(this); 
           VoiceHelper.speak(this, "Welcome to Command Titan");  
@@ -564,35 +588,44 @@ public class MainActivity extends AppCompatActivity {
         return prefs.getBoolean("dark_mode", false);
     }
     
-   private void updateVoiceFeedback(String sender, String message) {
+  private void updateVoiceFeedback(String sender, String message) {
             if (voiceFeedbackContainer == null) return;
 
             // Keep only last 5 messages
             if (feedbackQueue.size() >= 5) {
-                feedbackQueue.poll(); // remove oldest
+                feedbackQueue.poll();
                 voiceFeedbackContainer.removeViewAt(0);
             }
 
-            // Create a new TextView for each feedback
-            TextView textView = new TextView(this);
-            textView.setText(sender + ": " + message);
-            textView.setTextSize(16f);
+            // Bubble container
+            LinearLayout bubbleWrap = new LinearLayout(this);
+            bubbleWrap.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            bubbleWrap.setPadding(6,6,6,6);
 
-            // 🎨 Color coding
+            TextView tv = new TextView(this);
+            tv.setText(message);
+            tv.setTextSize(15f);
+            tv.setPadding(16,12,16,12);
+            tv.setMaxWidth((int)(getResources().getDisplayMetrics().widthPixels * 0.75));
+
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            params.setMargins(8,6,8,6);
+
             if (sender.equalsIgnoreCase("User")) {
-                textView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-            } else if (sender.equalsIgnoreCase("Assistant")) {
-                textView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                bubbleWrap.setGravity(android.view.Gravity.END);
+                tv.setBackgroundResource(R.drawable.bg_user_bubble);
+                tv.setTextColor(getResources().getColor(android.R.color.white));
             } else {
-                textView.setTextColor(getResources().getColor(android.R.color.black));
+                bubbleWrap.setGravity(android.view.Gravity.START);
+                tv.setBackgroundResource(R.drawable.bg_assistant_bubble);
+                tv.setTextColor(getResources().getColor(android.R.color.white));
             }
 
-            // Add message and update scroll
+            bubbleWrap.addView(tv, params);
             feedbackQueue.add(sender + ": " + message);
-            voiceFeedbackContainer.addView(textView);
-
-            // Scroll to bottom
+            voiceFeedbackContainer.addView(bubbleWrap);
             voiceScrollView.post(() -> voiceScrollView.fullScroll(ScrollView.FOCUS_DOWN));
         }
-
 }
