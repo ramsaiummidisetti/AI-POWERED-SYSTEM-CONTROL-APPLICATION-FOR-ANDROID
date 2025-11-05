@@ -142,28 +142,7 @@ public class MainActivity extends AppCompatActivity {
         if (mainLayout != null) {
             mainLayout.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
         }
-         // 🟢 Open Dashboard when clicking quick card
-        // View quickCard = findViewById(R.id.quick_card);
-        // if (quickCard != null) {
-        //     quickCard.setOnClickListener(v -> {
-        //         v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.card_pop));
-        //         startActivity(new Intent(this, DashboardScreenActivity.class));
-        //     });
-        // }
-
-        // MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
-        // topAppBar.setOnMenuItemClickListener(item -> {
-        //     if (item.getItemId() == R.id.action_theme) {
-        //         boolean isDark = loadThemePreference();
-        //         saveThemePreference(!isDark);
-        //         AppCompatDelegate.setDefaultNightMode(!isDark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
-        //         recreate();
-        //         return true;
-        //     }
-        //     return false;
-        // });
-
-        
+     
           VoiceHelper.init(this); 
           VoiceHelper.speak(this, "Welcome to Command Titan");  
  
@@ -188,12 +167,6 @@ public class MainActivity extends AppCompatActivity {
         voiceScrollView = findViewById(R.id.voiceScrollView);
 
         contextManager = new ContextManager(this);
-
-       
-
-        // inside onCreate() after setContentView(...)
-        // Button refreshButton = findViewById(R.id.btn_refresh);
-        // refreshButton.setOnClickListener(v -> refreshDashboard());
 
             // 🎤 Voice button
             Button voiceButton = findViewById(R.id.btn_voice);
@@ -385,50 +358,6 @@ public class MainActivity extends AppCompatActivity {
                 android.os.Process.myUid(), getPackageName());
         return mode == AppOpsManager.MODE_ALLOWED;
     }
-
-    // ✅ Refresh all card values dynamically
-    // private void refreshDashboard() {
-    //     try {
-    //         // App Usage
-    //         String usage = UsageStatsHelper.getUsageSummary(this);
-    //         details.set(0, usage);
-    //     } catch (Exception e) {
-    //         details.set(0, "Usage: error");
-    //     }
-
-    //     // Battery
-    //     details.set(1, getBatteryInfo());
-
-    //     // Network
-    //     String net = NetworkHelper.getNetworkStatus(this);
-    //     if (net == null)
-    //         net = getNetworkStatusFallback();
-    //     details.set(2, net);
-
-    //     // Bluetooth
-    //     if (bluetoothAdapter != null)
-    //         details.set(3, bluetoothAdapter.isEnabled() ? "On" : "Off");
-    //     else
-    //         details.set(3, "Not Supported");
-
-    //     // NFC
-    //     NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
-    //     if (nfcAdapter == null)
-    //         details.set(4, "Not Supported");
-    //     else if (nfcAdapter.isEnabled())
-    //         details.set(4, "On");
-    //     else
-    //         details.set(4, "Off");
-
-    //     adapter.notifyDataSetChanged();
-    //     Toast.makeText(this, "Dashboard refreshed", Toast.LENGTH_SHORT).show();
-    // }
-
-    // @Override
-    // protected void onResume() {
-    //     super.onResume();
-    //     refreshDashboard(); // auto-refresh when returning from Settings
-    // }
 
     private void startVoiceInput() {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
