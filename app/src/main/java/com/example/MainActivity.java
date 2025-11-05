@@ -72,7 +72,7 @@ import com.example.utils.VoiceHelper;
 
 
 import org.json.JSONObject;
-
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -140,10 +140,10 @@ public class MainActivity extends AppCompatActivity {
 
         
         // ✅ THEN attach to main layout
-        ScrollView mainLayout = findViewById(R.id.mainLayout);
-        if (mainLayout != null) {
-            mainLayout.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
-        }
+        // ScrollView mainLayout = findViewById(R.id.mainLayout);
+        // if (mainLayout != null) {
+        //     mainLayout.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
+        // }
      
           VoiceHelper.init(this); 
           VoiceHelper.speak(this, "Welcome to Command Titan");  
@@ -182,11 +182,12 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(this, "Voice recognition not supported", Toast.LENGTH_SHORT).show();
                 }
             });
-            Button openDashboardButton = findViewById(R.id.btn_open_dashboard);
-             openDashboardButton.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, DashboardScreenActivity.class);
-            startActivity(intent);
-    });
+            FloatingActionButton openDashboardButton = findViewById(R.id.btn_open_dashboard);
+            openDashboardButton.setOnClickListener(v -> {
+                v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
+                Intent intent = new Intent(MainActivity.this, DashboardScreenActivity.class);
+                startActivity(intent);
+            });
 
         // Initialize Bluetooth
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -464,35 +465,106 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-            if (command.contains("Turn on Bluetooth") || command.contains("blue tooth")) {
-                if (command.contains("on")) {
-                    if (!isBluetoothOn()) {
-                        boolean success = tryEnableBluetoothDirectly();
-                        if (success) speak("Turning on Bluetooth.");
-                        else speak("Please enable Bluetooth manually in settings.");
-                    } else {
-                        speak("Bluetooth is already on.");
-                    }
-                } else if (command.contains("off")) {
-                    if (isBluetoothOn()) {
-                        boolean success = tryDisableBluetoothDirectly();
-                        if (success) speak("Turning off Bluetooth.");
-                        else speak("Please turn off Bluetooth manually in settings.");
-                    } else {
-                        speak("Bluetooth is already off.");
-                    }
+       if (command.contains("bluetooth")) {
+
+        if (command.contains("turn on") || command.contains("enable")) {
+            if (!isBluetoothOn()) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    boolean success = tryEnableBluetoothDirectly();
+                    if (success)
+                        speak("Bluetooth has been turned on successfully.");
+                    else
+                        speak("Unable to turn on Bluetooth directly. Please enable it manually.");
                 } else {
-                    if (isBluetoothOn()) speak("Bluetooth is currently on.");
-                    else speak("Bluetooth is currently off.");
+                    // 🔹 Android 12 + — open system panel
+                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivity(enableBtIntent);
+                    speak("Opening Bluetooth settings. Please confirm to turn it on.");
                 }
+            } else {
+                speak("Bluetooth is already on.");
+            }
+            return;
+        }
+
+        if (command.contains("turn off") || command.contains("disable")) {
+            if (isBluetoothOn()) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    boolean success = tryDisableBluetoothDirectly();
+                    if (success)
+                        speak("Bluetooth has been turned off successfully.");
+                    else
+                        speak("Unable to turn off Bluetooth directly. Please disable it manually.");
+                } else {
+                    // 🔹 Android 12 + — open settings page
+                    Intent panelIntent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+                    startActivity(panelIntent);
+                    speak("Opening Bluetooth settings. Please turn it off manually.");
+                }
+            } else {
+                speak("Bluetooth is already off.");
+            }
+            return;
+        }
+
+                // ✅ Just status query
+                if (isBluetoothOn()) speak("Bluetooth is currently on.");
+                else speak("Bluetooth is currently off.");
                 return;
             }
+
           if (command.matches(".*(dashboard|control|center|home|system control center).*")) {
                 speak("Opening system control center.");
                 Intent dashIntent = new Intent(this, DashboardScreenActivity.class);
                 startActivity(dashIntent);
                 return;
             }
+                        // 🔵 Additional Phase 1 Commands (Non-destructive)
+            if (command.contains("date")) {
+                String date = java.text.DateFormat.getDateInstance().format(new java.util.Date());
+                speak("Today's date is " + date);
+                return;
+            }
+
+            if (command.contains("settings")) {
+                speak("Opening settings.");
+                startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+                return;
+            }
+
+            if (command.contains("flashlight") || command.contains("torch")) {
+                android.hardware.camera2.CameraManager camManager =
+                        (android.hardware.camera2.CameraManager) getSystemService(Context.CAMERA_SERVICE);
+                try {
+                    String camId = camManager.getCameraIdList()[0];
+                    if (command.contains("on")) {
+                        camManager.setTorchMode(camId, true);
+                        speak("Flashlight turned on.");
+                    } else if (command.contains("off")) {
+                        camManager.setTorchMode(camId, false);
+                        speak("Flashlight turned off.");
+                    } else {
+                        speak("Say turn on or turn off flashlight.");
+                    }
+                } catch (Exception e) {
+                    speak("Flashlight not supported on this device.");
+                }
+                return;
+            }
+
+            if (command.contains("restart app")) {
+                speak("Restarting the app.");
+                Intent Rintent = getIntent();
+                finish();
+                startActivity(Rintent);
+                return;
+            }
+
+            if (command.contains("help")) {
+                speak("Here are some things I can do: check battery, open dashboard, tell time, change theme, control Bluetooth, and flashlight.");
+                return;
+            }
+
 
             // 🟥 Default case — if no command matched
             speak("Sorry, I didn't understand that command.");

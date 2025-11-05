@@ -1,32 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView 
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/space_bg"
-    android:padding="16dp">
+    tools:context=".MainActivity">
 
-    <LinearLayout
+    <!-- 🌌 Scrollable Main Content -->
+    <ScrollView
+    
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"    
-        android:orientation="vertical">
+        android:layout_height="match_parent"
+        android:padding="16dp">
 
-        <!-- 🟣 Welcome Text -->
-        <TextView
-            android:id="@+id/welcomeText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Welcome to Command Titan"
-            android:textAlignment="center"
-            android:textStyle="bold"
-            android:textSize="26sp"
-            android:textColor="@color/white"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="20dp" />
+            android:orientation="vertical">
 
-        <!-- 🟩 User Name Input Card -->
+            <!-- 🟣 App Title -->
+            <TextView
+                android:id="@+id/welcomeText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Welcome to Command Titan"
+                android:textAlignment="center"
+                android:textStyle="bold"
+                android:textSize="26sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="20dp" />
+           <!-- 🟩 User Name Input Card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -61,9 +66,8 @@
                     android:textColor="@color/white" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
-        <!-- 🎤 Voice Interaction Card -->
-        <androidx.cardview.widget.CardView
+            <!-- 🎤 Voice Interaction Card -->
+             <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="16dp"
@@ -114,27 +118,49 @@
                 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+            <!-- 📊 Dashboard Preview -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/dashboardRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:clipToPadding="false"
+                android:scrollbars="none" />
 
-        <!-- 🧭 System Control Button -->
-        <com.google.android.material.button.MaterialButton
+        </LinearLayout>
+    </ScrollView>
+
+       <!-- ⚙️ Floating System Control Button (Fixed Position) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="24dp"
+        android:layout_marginBottom="24dp">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btn_open_dashboard"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="System Control Center"
-            android:textAllCaps="false"
-            app:cornerRadius="12dp"
-            app:backgroundTint="@color/blue_500"
-            android:textColor="@color/white"
-            android:layout_marginBottom="16dp"
-            android:padding="12dp" />
+            android:contentDescription="System Control Center"
+            app:srcCompat="@drawable/ic_system_control"
+            app:tint="@android:color/white"
+            app:backgroundTint="@color/blue_700"
+            android:elevation="12dp"
+            android:clickable="true"
+            app:borderWidth="0dp" />
 
-        <!-- 📊 Dashboard Preview -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/dashboardRecyclerView"
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/dashboardLabel"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:clipToPadding="false"
-            android:scrollbars="none" />
+            android:text="Dashboard"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:layout_marginTop="6dp"
+            android:textStyle="bold" />
     </LinearLayout>
-</ScrollView>
+
+</FrameLayout>
