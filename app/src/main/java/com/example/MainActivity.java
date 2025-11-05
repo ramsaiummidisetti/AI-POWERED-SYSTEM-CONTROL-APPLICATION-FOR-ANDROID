@@ -34,6 +34,7 @@ import java.util.Queue;
 
 import android.nfc.NfcAdapter;
 import android.widget.TextView;
+import android.os.Vibrator;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -116,27 +117,28 @@ public class MainActivity extends AppCompatActivity {
         contextManager = new ContextManager(this);
 
         // ✅ Initialize gestureDetector before using it
-        gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
+       gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
             @Override
             public void onSwipeLeft() {
+                vibrateShort();
                 speak("You swiped left. Showing previous status.");
-                Toast.makeText(MainActivity.this, "Swipe Left", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onSwipeRight() {
+                vibrateShort();
                 speak("You swiped right. Refreshing dashboard.");
-                Toast.makeText(MainActivity.this, "Swipe Right", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onDoubleTap() {
+                vibrateShort();
                 String context = contextManager.detectContext();
                 speak("Detected context: " + context);
-                Toast.makeText(MainActivity.this, "Double Tap Detected", Toast.LENGTH_SHORT).show();
             }
         }));
 
+        
         // ✅ THEN attach to main layout
         ScrollView mainLayout = findViewById(R.id.mainLayout);
         if (mainLayout != null) {
@@ -438,10 +440,29 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-           if (command.matches(".*(Wi-Fi|check Wi-Fi|internet|network).*")) {
-                speak(getNetworkStatusFallback());
-                return;
+        if (command.contains("wifi") || command.contains("wi-fi") ||
+            command.contains("internet") || command.contains("network")) {
+
+            String netStatus = getNetworkStatusFallback().toLowerCase(Locale.ROOT);
+
+            String reply;
+            if (netStatus.contains("no") || netStatus.contains("unknown")) {
+                reply = "You are currently offline. Please check your Wi-Fi or mobile data.";
+            } else if (netStatus.contains("wi-fi")) {
+                reply = "Wi-Fi is connected and working fine.";
+            } else if (netStatus.contains("mobile")) {
+                reply = "Mobile data connection is active.";
+            } else if (netStatus.contains("other")) {
+                reply = "You are connected to another type of network.";
+            } else {
+                reply = "Network status: " + netStatus;
             }
+
+            speak(reply);
+            updateVoiceFeedback("Assistant", reply);
+            return;
+        }
+
 
             if (command.contains("Turn on Bluetooth") || command.contains("blue tooth")) {
                 if (command.contains("on")) {
@@ -599,4 +620,16 @@ public class MainActivity extends AppCompatActivity {
             voiceFeedbackContainer.addView(bubbleWrap);
             voiceScrollView.post(() -> voiceScrollView.fullScroll(ScrollView.FOCUS_DOWN));
         }
+        // Add this helper method below your class methods
+        private void vibrateShort() {
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(android.os.VibrationEffect.createOneShot(50, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    v.vibrate(50);
+                }
+            }
+        }
+
 }
