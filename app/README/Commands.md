@@ -160,3 +160,39 @@ Would you like me to generate a **GitHub-ready Phase 1 README.md** that includes
 * setup & usage instructions
 
 so you can upload it directly to your repo?
+
+🎛️ System & Device
+
+“Check Wi-Fi” / “Internet status”
+
+“Battery status”
+
+“Bluetooth status” / “Turn on/off Bluetooth”
+
+“Turn on/off flashlight”
+
+“Open settings”
+
+🌓 Appearance
+
+“Switch to dark mode”
+
+“Switch to light mode”
+
+⏰ Time & Date
+
+“What’s the time?”
+
+“What’s the date today?”
+
+📊 App Navigation
+
+“Open dashboard” / “System control center”
+
+“Restart app”
+
+“Stop listening”
+
+🧠 Info/Help
+
+“Help” / “What can you do?”****
