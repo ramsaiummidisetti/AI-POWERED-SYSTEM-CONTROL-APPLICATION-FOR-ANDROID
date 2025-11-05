@@ -17,11 +17,18 @@ public class GestureHandler extends GestureDetector.SimpleOnGestureListener {
         this.listener = listener;
     }
 
+    private static final int SWIPE_THRESHOLD = 100;
+    private static final int SWIPE_VELOCITY_THRESHOLD = 100;
+
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        if (velocityX > 2000) listener.onSwipeRight();
-        else if (velocityX < -2000) listener.onSwipeLeft();
-        return true;
+        float diffX = e2.getX() - e1.getX();
+        if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+            if (diffX > 0) listener.onSwipeRight();
+            else listener.onSwipeLeft();
+            return true;
+        }
+        return false;
     }
 
     @Override

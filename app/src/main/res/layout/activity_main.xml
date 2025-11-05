@@ -2,6 +2,7 @@
 <ScrollView 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/space_bg"
@@ -11,51 +12,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"    
         android:orientation="vertical">
-
-        <!-- 🟣 App Bar -->
-        <!-- <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/topAppBar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="?attr/colorPrimary"
-            android:title="Command Titan"
-            android:titleTextColor="@android:color/white"
-            android:elevation="4dp" /> -->
-
-        <!-- 🟢 Quick Access Card -->
-        <!-- 🟢 Quick Access Card (moved to top, no gap) -->
-          <com.google.android.material.card.MaterialCardView
-            android:id="@+id/quick_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="0dp"
-            android:layout_marginBottom="8dp"
-            app:cardCornerRadius="0dp"    
-            android:elevation="6dp"
-            android:backgroundTint="@color/blue_500">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="12dp">
-
-                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:src="@android:drawable/ic_menu_manage"
-                    android:contentDescription="Quick Access Icon" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Quick Access to System Dashboard"
-                    android:textColor="@android:color/white"
-                    android:textSize="18sp"
-                    android:layout_marginStart="12dp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
         <!-- 🟣 Welcome Text -->
         <TextView
@@ -76,7 +32,7 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="16dp"
             app:cardElevation="6dp"
-            app:cardBackgroundColor="@color/white"
+            app:cardBackgroundColor="#80269bc1"
             android:layout_marginBottom="16dp">
 
             <LinearLayout
@@ -91,8 +47,7 @@
                     android:layout_height="wrap_content"
                     android:hint="Ask me"
                     android:padding="12dp"
-                    android:textColorHint="@color/card_subtext"
-                    android:textColor="@color/black"
+                    android:textColorHint="@color/white"
                     android:inputType="textPersonName" />
 
                 <com.google.android.material.button.MaterialButton
@@ -113,7 +68,7 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="16dp"
             app:cardElevation="6dp"
-            app:cardBackgroundColor="@color/white"
+            app:cardBackgroundColor="#80269bc1"
             android:layout_marginBottom="16dp">
 
             <LinearLayout
@@ -141,20 +96,19 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_voice"
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    app:cornerRadius="40dp"
-                    android:backgroundTint="@color/purple_500"
-                    android:text="🎤"
-                    android:textSize="30sp"
-                    android:textColor="@color/white" />
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    app:cornerRadius="60dp"
+                    android:backgroundTint="@color/white"
+                    android:text="🎙️"
+                    android:textSize="36sp" />
 
-                <TextView
+            <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Tap to Speak"
+                    android:textColor="@color/white" 
                     android:textSize="14sp"
-                    android:textColor="@color/card_subtext"
                     android:layout_marginTop="8dp" />
 
                 

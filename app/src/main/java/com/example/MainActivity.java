@@ -102,7 +102,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-       
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean darkMode = prefs.getBoolean("dark_mode", false);
 
@@ -111,16 +110,46 @@ public class MainActivity extends AppCompatActivity {
         } else {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
-         setContentView(R.layout.activity_main);
+          setContentView(R.layout.activity_main);
+                
+        // ✅ Initialize context manager first
+        contextManager = new ContextManager(this);
 
-         // 🟢 Open Dashboard when clicking quick card
-        View quickCard = findViewById(R.id.quick_card);
-        if (quickCard != null) {
-            quickCard.setOnClickListener(v -> {
-                v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.card_pop));
-                startActivity(new Intent(this, DashboardScreenActivity.class));
-            });
+        // ✅ Initialize gestureDetector before using it
+        gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
+            @Override
+            public void onSwipeLeft() {
+                speak("You swiped left. Showing previous status.");
+                Toast.makeText(MainActivity.this, "Swipe Left", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onSwipeRight() {
+                speak("You swiped right. Refreshing dashboard.");
+                Toast.makeText(MainActivity.this, "Swipe Right", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onDoubleTap() {
+                String context = contextManager.detectContext();
+                speak("Detected context: " + context);
+                Toast.makeText(MainActivity.this, "Double Tap Detected", Toast.LENGTH_SHORT).show();
+            }
+        }));
+
+        // ✅ THEN attach to main layout
+        ScrollView mainLayout = findViewById(R.id.mainLayout);
+        if (mainLayout != null) {
+            mainLayout.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
         }
+         // 🟢 Open Dashboard when clicking quick card
+        // View quickCard = findViewById(R.id.quick_card);
+        // if (quickCard != null) {
+        //     quickCard.setOnClickListener(v -> {
+        //         v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.card_pop));
+        //         startActivity(new Intent(this, DashboardScreenActivity.class));
+        //     });
+        // }
 
         // MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
         // topAppBar.setOnMenuItemClickListener(item -> {
@@ -160,24 +189,7 @@ public class MainActivity extends AppCompatActivity {
 
         contextManager = new ContextManager(this);
 
-        gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
-            @Override
-            public void onSwipeLeft() {
-                speak("You swiped left. Showing previous status.");
-            }
-
-            @Override
-            public void onSwipeRight() {
-                speak("You swiped right. Refreshing dashboard.");
-                // refreshDashboard();
-            }
-
-            @Override
-            public void onDoubleTap() {
-                String context = contextManager.detectContext();
-                speak("Detected context: " + context);
-            }
-        }));
+       
 
         // inside onCreate() after setContentView(...)
         // Button refreshButton = findViewById(R.id.btn_refresh);
@@ -336,23 +348,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // 📌 Network fallback
-    public String getNetworkStatusFallback() {
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm == null)
-            return "Network: unknown";
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
-            if (caps == null)
-                return "No network";
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
-                return "Wi-Fi connected";
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
-                return "Mobile data connected";
-            return "Other network";
-        } else {
-            return "Network status requires API >= M";
+        public String getNetworkStatusFallback() {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return "Network status unavailable";
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+                if (caps == null) return "You are currently offline";
+
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+                    return "You are connected to Wi-Fi";
+
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
+                    return "You are connected to mobile data";
+
+                return "You are connected to another network type";
+            } else {
+                android.net.NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+                if (activeNetwork != null && activeNetwork.isConnected()) {
+                    if (activeNetwork.getType() == ConnectivityManager.TYPE_WIFI)
+                        return "You are connected to Wi-Fi";
+                    else if (activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE)
+                        return "You are connected to mobile data";
+                    else
+                        return "You are connected to another network";
+                } else {
+                    return "You are currently offline";
+                }
+            }
         }
-    }
 
     // 📌 Usage stats permission check
     private boolean hasUsageStatsPermission() {
@@ -432,7 +456,6 @@ public class MainActivity extends AppCompatActivity {
                    // 🟩 PLACE THIS HERE
                 updateVoiceFeedback("User", command);
 
-                handleVoiceCommand(command);
 
             }
         }
@@ -486,14 +509,38 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            if (command.contains("network")) {
+           if (command.matches(".*(Wi-Fi|check Wi-Fi|internet|network).*")) {
                 speak(getNetworkStatusFallback());
                 return;
             }
 
-            if (command.contains("bluetooth")) {
-                if (isBluetoothOn()) speak("Bluetooth is currently on");
-                else speak("Bluetooth is off");
+            if (command.contains("Turn on Bluetooth") || command.contains("blue tooth")) {
+                if (command.contains("on")) {
+                    if (!isBluetoothOn()) {
+                        boolean success = tryEnableBluetoothDirectly();
+                        if (success) speak("Turning on Bluetooth.");
+                        else speak("Please enable Bluetooth manually in settings.");
+                    } else {
+                        speak("Bluetooth is already on.");
+                    }
+                } else if (command.contains("off")) {
+                    if (isBluetoothOn()) {
+                        boolean success = tryDisableBluetoothDirectly();
+                        if (success) speak("Turning off Bluetooth.");
+                        else speak("Please turn off Bluetooth manually in settings.");
+                    } else {
+                        speak("Bluetooth is already off.");
+                    }
+                } else {
+                    if (isBluetoothOn()) speak("Bluetooth is currently on.");
+                    else speak("Bluetooth is currently off.");
+                }
+                return;
+            }
+          if (command.matches(".*(dashboard|control|center|home|system control center).*")) {
+                speak("Opening system control center.");
+                Intent dashIntent = new Intent(this, DashboardScreenActivity.class);
+                startActivity(dashIntent);
                 return;
             }
 
@@ -503,14 +550,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-    private void handleVoiceCommand(String command) {
-        // 1️⃣ Parse the user's spoken text into structured intent
-        IntentParser.ParsedIntent parsed = IntentParser.parse(command);
+            
 
-        // 2️⃣ Pass it to the orchestrator for execution
-       CommandOrchestrator orchestrator = new CommandOrchestrator(this, null, this);
-        orchestrator.execute(parsed);
-    }
+
 
     public boolean isBluetoothOn() {
         return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
