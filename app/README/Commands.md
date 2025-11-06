@@ -196,3 +196,47 @@ so you can upload it directly to your repo?
 🧠 Info/Help
 
 “Help” / “What can you do?”****
+
+Part G — Example voice commands list (phase-1 implemented + new additions)
+
+Basic info & utilities
+
+"What’s the time?"
+
+"What's the date today?"
+
+"Check battery status" / "battery level"
+
+"Help me"
+
+Network & connectivity
+
+"Is Wi-Fi on?" / "Check internet" / "Is internet on?"
+
+Bluetooth
+
+"Is Bluetooth on?"
+
+"Turn on Bluetooth" / "Enable Bluetooth"
+
+"Turn off Bluetooth" / "Disable Bluetooth"
+
+Dashboard & Settings
+
+"Open dashboard" / "Open system control center"
+
+"Open settings"
+
+Controls
+
+"Turn on flashlight" / "Turn off flashlight"
+
+"Switch to dark mode" / "Switch to light mode"
+
+App control
+
+"Restart app"
+
+"Exit app"
+
+You can add more commands by extending IntentParser and handling them inside executeIntent().
