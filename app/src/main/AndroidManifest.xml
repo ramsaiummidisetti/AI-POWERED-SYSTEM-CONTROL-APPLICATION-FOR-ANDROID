@@ -57,6 +57,9 @@
 
         <activity android:name=".DashboardScreenActivity"  android:exported="true"
         android:label="Dashboard Screen" />
+        <activity android:name=".HelperActivity" android:exported="true"
+        android:label="Helper Screen" />
+
 
     </application>
 </manifest>

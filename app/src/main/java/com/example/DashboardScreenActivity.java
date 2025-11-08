@@ -14,14 +14,22 @@ import com.example.utils.NetworkHelper;
 import com.example.utils.UsageStatsHelper;
 import com.example.utils.VoiceHelper;
 
+import android.os.Environment;
+import android.os.StatFs;
+import java.io.File;
+
+import android.view.View;
+import android.view.animation.AnimationUtils;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 import android.bluetooth.BluetoothAdapter;
 import android.provider.Settings;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.content.Context;
-
 import java.util.ArrayList;
 import java.util.List;
+import android.widget.TextView;
 
 import android.app.AppOpsManager;
 import android.content.pm.ApplicationInfo;
@@ -36,19 +44,20 @@ public class DashboardScreenActivity extends AppCompatActivity {
     private List<String> titles, details;
     private BluetoothAdapter bluetoothAdapter;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-         VoiceHelper.init(this);
-       // Speak when Dashboard opens
+        VoiceHelper.init(this);
         VoiceHelper.speak(this, "System Dashboard opened");
-        // 🟡 Step 1 — Check usage permission before showing dashboard
+
+        // 🟡 Check permission first
         if (!hasUsageStatsPermission()) {
             showUsageAccessDialog();
             return;
         }
 
-        // 🟢 Step 2 — Continue normal dashboard setup
+        // 🟢 Load the dashboard layout & logic
         setupDashboard();
     }
 
@@ -62,54 +71,70 @@ public class DashboardScreenActivity extends AppCompatActivity {
         }
     }
 
-    // 🧩 Step 3 — Move dashboard UI setup into a separate method
+    // 🧩 Load and setup UI
     private void setupDashboard() {
         setContentView(R.layout.activity_dashboard_screen);
 
+        // Initialize UI elements AFTER layout is loaded
         recyclerView = findViewById(R.id.dashboardRecyclerView);
-        recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
+    
 
+        recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
+        // Floating buttons
+        FloatingActionButton openDashboardButton = findViewById(R.id.btn_open_dashboard);
+        FloatingActionButton openHelpButton = findViewById(R.id.btn_open_help);
+
+        openDashboardButton.setOnClickListener(v -> {
+            v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
+            startActivity(new Intent(this, DashboardScreenActivity.class));
+        });
+
+        openHelpButton.setOnClickListener(v -> {
+            v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
+            startActivity(new Intent(this, HelperActivity.class));
+        });
+
+        // Setup data
         titles = new ArrayList<>();
         details = new ArrayList<>();
 
-        // Titles and placeholders
-        titles.add("App Usage");
-        details.add("Loading...");
-        titles.add("Battery Info");
-        details.add("Loading...");
-        titles.add("Network");
-        details.add("Loading...");
-        titles.add("Bluetooth");
-        details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off");
-        titles.add("NFC");
-        details.add("Loading...");
+        titles.add("App Usage"); details.add("Loading...");
+        titles.add("Battery Info"); details.add("Loading...");
+        titles.add("Network"); details.add("Loading...");
+        titles.add("Bluetooth"); details.add(bluetoothAdapter != null && bluetoothAdapter.isEnabled() ? "On" : "Off");
+        titles.add("NFC"); details.add("Loading...");
+        titles.add("Storage Info"); details.add(getStorageDetails());
 
-        // Adapter with click handling
         adapter = new DashboardAdapter(titles, details, (title, position) -> {
-            if (title.equals("Bluetooth")) {
-                toggleBluetooth();
-            } else if (title.equals("NFC")) {
-                NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
-                if (nfcAdapter != null && !nfcAdapter.isEnabled()) {
-                    Toast.makeText(this, "Enable NFC in settings", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(Settings.ACTION_NFC_SETTINGS));
-                } else {
-                    Toast.makeText(this, details.get(position), Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
-            }
+            if (title.equals("Bluetooth")) toggleBluetooth();
+            else if (title.equals("NFC")) handleNfc();
+            else Toast.makeText(this, details.get(position), Toast.LENGTH_LONG).show();
         });
 
         recyclerView.setAdapter(adapter);
-         refreshDashboard();
-        VoiceHelper.speak(this, "System Control Center loaded. Fetching system status.");
 
+        // Refresh and display data
+        refreshDashboard();
+      
+
+        // Voice feedback
+        VoiceHelper.speak(this, "System Control Center loaded. Fetching system status.");
     }
 
-    // ✅ Check usage stats permission
+    // ✅ NFC Handler
+    private void handleNfc() {
+        NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (nfcAdapter != null && !nfcAdapter.isEnabled()) {
+            Toast.makeText(this, "Enable NFC in settings", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(Settings.ACTION_NFC_SETTINGS));
+        } else {
+            Toast.makeText(this, "NFC is active or unsupported", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ✅ Check usage permission
     private boolean hasUsageStatsPermission() {
         try {
             AppOpsManager appOps = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
@@ -122,15 +147,12 @@ public class DashboardScreenActivity extends AppCompatActivity {
         }
     }
 
-    // ✅ Show permission dialog if missing
     private void showUsageAccessDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("Permission Needed")
                 .setMessage("To show app usage details, please allow Usage Access for this app.")
-                .setPositiveButton("Grant Access", (DialogInterface dialog, int which) -> {
-                    startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-                })
-                .setNegativeButton("Cancel", (DialogInterface dialog, int which) -> {
+                .setPositiveButton("Grant Access", (dialog, which) -> startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
+                .setNegativeButton("Cancel", (dialog, which) -> {
                     Toast.makeText(this, "Usage Access denied", Toast.LENGTH_SHORT).show();
                     finish();
                 })
@@ -151,7 +173,6 @@ public class DashboardScreenActivity extends AppCompatActivity {
         String net = NetworkHelper.getNetworkStatus(this);
         if (net == null) net = getNetworkStatusFallback();
         details.set(2, net);
-        VoiceHelper.speak(this, "Network status: " + net);
 
         if (bluetoothAdapter != null)
             details.set(3, bluetoothAdapter.isEnabled() ? "On" : "Off");
@@ -167,16 +188,12 @@ public class DashboardScreenActivity extends AppCompatActivity {
             details.set(4, "Off");
 
         adapter.notifyDataSetChanged();
-        String spokenSummary = String.format(
-        "Battery is at %s. Network status: %s. Bluetooth is %s. NFC is %s.",
-        details.get(1), details.get(2), details.get(3), details.get(4)
-        );
-          VoiceHelper.speak(this, "Battery level is " + getBatteryInfo());
 
-
+        VoiceHelper.speak(this,
+                "Battery is " + details.get(1) + ". Network " + details.get(2) +
+                        ". Bluetooth " + details.get(3) + ". NFC " + details.get(4));
     }
 
-    // ✅ Battery info
     private String getBatteryInfo() {
         Intent batteryStatus = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         if (batteryStatus == null) return "Battery unavailable";
@@ -186,7 +203,6 @@ public class DashboardScreenActivity extends AppCompatActivity {
         return percent + "%";
     }
 
-    // ✅ Network status fallback
     private String getNetworkStatusFallback() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm == null) return "Unknown";
@@ -199,28 +215,47 @@ public class DashboardScreenActivity extends AppCompatActivity {
         return "Network unavailable";
     }
 
-    // ✅ Toggle Bluetooth on/off
     private void toggleBluetooth() {
-            if (bluetoothAdapter == null) {
+        if (bluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
-            VoiceHelper.speak(this, "Bluetooth not supported on this device");
+            VoiceHelper.speak(this, "Bluetooth not supported");
             return;
         }
-            if (bluetoothAdapter.isEnabled()) {
+
+        if (bluetoothAdapter.isEnabled()) {
             bluetoothAdapter.disable();
-            Toast.makeText(this, "Turning off Bluetooth", Toast.LENGTH_SHORT).show();
-            VoiceHelper.speak(this, "Turning off Bluetooth");
-        } else {
-            bluetoothAdapter.enable();
             Toast.makeText(this, "Turning on Bluetooth", Toast.LENGTH_SHORT).show();
             VoiceHelper.speak(this, "Turning on Bluetooth");
+        } else {
+            bluetoothAdapter.enable();
+            Toast.makeText(this, "Turning off Bluetooth", Toast.LENGTH_SHORT).show();
+            VoiceHelper.speak(this, "Turning off Bluetooth");
         }
         refreshDashboard();
     }
+
+    private String getStorageDetails() {
+    try {
+        File path = Environment.getExternalStorageDirectory();
+        StatFs stat = new StatFs(path.getPath());
+
+        long blockSize = stat.getBlockSizeLong();
+        long totalBlocks = stat.getBlockCountLong();
+        long availableBlocks = stat.getAvailableBlocksLong();
+
+        long total = (totalBlocks * blockSize) / (1024 * 1024 * 1024);
+        long available = (availableBlocks * blockSize) / (1024 * 1024 * 1024);
+        long used = total - available;
+
+        return "Used: " + used + "GB / " + total + "GB\nFree: " + available + "GB";
+    } catch (Exception e) {
+        return "Storage info unavailable";
+    }
+}
+
     @Override
     protected void onDestroy() {
         VoiceHelper.shutdown();
         super.onDestroy();
     }
-
 }

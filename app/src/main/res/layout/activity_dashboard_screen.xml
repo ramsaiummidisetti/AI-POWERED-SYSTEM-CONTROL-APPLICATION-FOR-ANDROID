@@ -1,30 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    android:background="@android:color/white">
+    android:background="@drawable/space_bg"
+    android:padding="16dp">
 
+    <!-- Dashboard Title -->
     <TextView
         android:id="@+id/tv_dashboard_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="System Control Center"
+        android:textColor="@color/white"
         android:textSize="22sp"
         android:textStyle="bold"
         android:gravity="center"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp"
+        android:layout_alignParentTop="true" />
 
+    <!-- Dashboard Grid -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/dashboardRecyclerView"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="8dp"
+        android:layout_height="match_parent"
+        android:layout_below="@id/tv_dashboard_title"
+        android:layout_above="@+id/fab_container"
         android:clipToPadding="false"
-        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-        android:scrollbars="vertical" />
+        android:scrollbars="vertical"
+        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager" />
 
-</LinearLayout>
+    <!-- Floating Buttons Container -->
+    <LinearLayout
+        android:id="@+id/fab_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="12dp">
+
+        <!-- Dashboard FAB -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_margin="16dp">
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btn_open_dashboard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:srcCompat="@drawable/ic_dashboard"
+                android:contentDescription="Dashboard"
+                app:tint="@android:color/white"
+                app:backgroundTint="@color/blue_700" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dashboard"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Help FAB -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_margin="16dp">
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btn_open_help"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:srcCompat="@drawable/ic_help"
+                android:contentDescription="Help"
+                app:tint="@android:color/white"
+                app:backgroundTint="@color/teal_700" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Help"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+</RelativeLayout>

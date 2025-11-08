@@ -129,38 +129,72 @@
 
         </LinearLayout>
     </ScrollView>
-
-       <!-- ⚙️ Floating System Control Button (Fixed Position) -->
+    <!-- ⚙️ Floating Buttons Row (Dashboard + Help) -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
+        android:orientation="horizontal"
         android:layout_gravity="bottom|start"
         android:layout_marginStart="24dp"
-        android:layout_marginBottom="24dp">
+        android:layout_marginBottom="24dp"
+        android:gravity="center">
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btn_open_dashboard"
+        <!-- 🛠️ Dashboard Button + Label -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:contentDescription="System Control Center"
-            app:srcCompat="@drawable/ic_system_control"
-            app:tint="@android:color/white"
-            app:backgroundTint="@color/blue_700"
-            android:elevation="12dp"
-            android:clickable="true"
-            app:borderWidth="0dp" />
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginEnd="24dp">
 
-        <TextView
-            android:id="@+id/dashboardLabel"
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btn_open_dashboard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="System Control Center"
+                app:srcCompat="@drawable/ic_system_control"
+                app:tint="@android:color/white"
+                app:backgroundTint="@color/blue_700"
+                android:elevation="12dp"
+                android:clickable="true"
+                app:borderWidth="0dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dashboard"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- ❓ Help Button + Label -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Dashboard"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:layout_marginTop="6dp"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btn_open_help"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="Help Screen"
+                app:srcCompat="@drawable/ic_help"
+                app:tint="@android:color/white"
+                app:backgroundTint="@color/blue_700"
+                android:elevation="12dp"
+                android:clickable="true"
+                app:borderWidth="0dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Help"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
     </LinearLayout>
 
 </FrameLayout>

@@ -148,22 +148,22 @@ public class MainActivity extends AppCompatActivity {
           VoiceHelper.init(this); 
           VoiceHelper.speak(this, "Welcome to Command Titan");  
  
-        textToSpeech = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                int result = textToSpeech.setLanguage(Locale.ENGLISH);
-                textToSpeech.setPitch(1.1f);
-                textToSpeech.setSpeechRate(1.0f);
+        // textToSpeech = new TextToSpeech(this, status -> {
+        //     if (status == TextToSpeech.SUCCESS) {
+        //         int result = textToSpeech.setLanguage(Locale.ENGLISH);
+        //         textToSpeech.setPitch(1.1f);
+        //         textToSpeech.setSpeechRate(1.0f);
 
-                if (result == TextToSpeech.LANG_MISSING_DATA ||
-                    result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Toast.makeText(this, "TTS language not supported", Toast.LENGTH_SHORT).show();
-                } else {
-                    Log.i("TTS", "Text-to-Speech initialized successfully");
-                }
-            } else {
-                Toast.makeText(this, "TTS initialization failed", Toast.LENGTH_SHORT).show();
-            }
-        });
+        //         if (result == TextToSpeech.LANG_MISSING_DATA ||
+        //             result == TextToSpeech.LANG_NOT_SUPPORTED) {
+        //             Toast.makeText(this, "TTS language not supported", Toast.LENGTH_SHORT).show();
+        //         } else {
+        //             Log.i("TTS", "Text-to-Speech initialized successfully");
+        //         }
+        //     } else {
+        //         Toast.makeText(this, "TTS initialization failed", Toast.LENGTH_SHORT).show();
+        //     }
+        // });
 
         voiceFeedbackContainer = findViewById(R.id.voiceFeedbackContainer);
         voiceScrollView = findViewById(R.id.voiceScrollView);
@@ -186,6 +186,13 @@ public class MainActivity extends AppCompatActivity {
             openDashboardButton.setOnClickListener(v -> {
                 v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
                 Intent intent = new Intent(MainActivity.this, DashboardScreenActivity.class);
+                startActivity(intent);
+            });
+            // 🆕 Help Button
+            FloatingActionButton openHelpButton = findViewById(R.id.btn_open_help);
+            openHelpButton.setOnClickListener(v -> {
+                v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
+                Intent intent = new Intent(MainActivity.this, HelperActivity.class);
                 startActivity(intent);
             });
 
@@ -232,8 +239,8 @@ public class MainActivity extends AppCompatActivity {
 
                 NotificationHelper.sendActionNotification(
                         this, 1001,
-                        "Welcome",
-                        "Hello, " + userName + "!",
+                        "",
+                        "" + userName + "",
                         mainIntent,
                         mainIntent);
             } else {
@@ -560,10 +567,12 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            if (command.contains("help")) {
-                speak("Here are some things I can do: check battery, open dashboard, tell time, change theme, control Bluetooth, and flashlight.");
+           if (command.contains("help") ||command.contains("open help") || command.contains("help me") || command.contains("how to use")) {
+                speak("Opening help and user guide Screen.");
+                Intent helpIntent = new Intent(this, HelperActivity.class);
+                startActivity(helpIntent);
                 return;
-            }
+           }
 
 
             // 🟥 Default case — if no command matched
@@ -623,10 +632,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-            if (textToSpeech != null) {
-            textToSpeech.stop();
-            textToSpeech.shutdown();
-        }
          VoiceHelper.shutdown();
         super.onDestroy();
     }
