@@ -40,7 +40,7 @@ By the end of this week, you’ll understand and implement:
 
 ### 🧩 **Technical Tasks**
 
-| Step | Component                      | Description                                                     |
+| Step | Component                      | cdDescription                                                     |
 | ---- | ------------------------------ | --------------------------------------------------------------- |
 | 1️⃣  | **Integrate SpeechRecognizer** | Use `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` for voice input. |
 | 2️⃣  | **Display Recognized Text**    | Show recognized speech on-screen or log it.                     |
