@@ -79,6 +79,12 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.utils.UsagePatternAnalyzer;
+import com.example.ai.PatternDetector;
+import com.example.ai.AutomationSuggester;
+import com.example.ai.TaskScriptParser;
+import com.example.ai.ScriptEngine;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -280,6 +286,14 @@ public class MainActivity extends AppCompatActivity {
         // ✅ Smart suggestions
         SmartSuggestions.checkStorageAndSuggest(this);
         SmartSuggestions.checkBatteryAndSuggest(this);
+
+            List<String> apps =
+            UsagePatternAnalyzer.getRecentlyUsedApps(this);
+
+            String frequentApp =
+                    PatternDetector.detectRepeatedApp(apps);
+
+            AutomationSuggester.suggest(this, frequentApp);
     }
 
     public boolean tryEnableBluetoothDirectly() {
@@ -413,6 +427,24 @@ public class MainActivity extends AppCompatActivity {
                 String command = result.get(0).toLowerCase(Locale.ROOT);
                 updateVoiceFeedback("User", command);
 
+                List<String> actions =
+                TaskScriptParser.parseActions(command);
+
+                if (!actions.isEmpty()) {
+                    ScriptEngine.execute(this, actions);
+                    return;
+                }
+                // 🧠 WEEK-3: MULTI-STEP SCRIPT DETECTION
+                if (command.contains(" and ")) {
+
+                    List<String> scriptActions =
+                            TaskScriptParser.parseActions(command);
+                        if (!scriptActions.isEmpty()) {
+                            ScriptEngine.execute(this, scriptActions);
+                            speak("Executing multiple actions");
+                            return;
+                        }
+                        }
                 // ✅ GUARANTEE ML ENGINE EXISTS
                 if (aiIntentEngine == null) {
                     try {
@@ -434,7 +466,7 @@ public class MainActivity extends AppCompatActivity {
             // 🟢 If ML detected intent → use orchestrator
             if (mlIntent != -1) {
                 CommandOrchestrator orchestrator =
-                        new CommandOrchestrator(this, this);
+                        new CommandOrchestrator(this);
 
                 orchestrator.handleIntent(mlIntent);
                 return;
