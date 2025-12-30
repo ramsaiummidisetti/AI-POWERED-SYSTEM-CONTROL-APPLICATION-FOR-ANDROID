@@ -72,6 +72,8 @@ import com.example.utils.IntentParser;
 import com.example.utils.CommandOrchestrator;
 import com.example.utils.VoiceHelper;
 
+import com.example.accessibility.UniversalControlService;
+
 import org.json.JSONObject;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.ArrayList;
@@ -84,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
     private AlertManager alertManager;
 
     private AIIntentEngine aiIntentEngine;
+
 
     // RecyclerView card data
     private List<String> titles;
@@ -419,18 +422,30 @@ public class MainActivity extends AppCompatActivity {
                         Log.e("MAIN_ACTIVITY", "AIIntentEngine init failed", e);
                     }
                 }
+            // 🧠 AI Intent Detection
+            int mlIntent = -1;
 
-                int mlIntent = -1;
-                if (aiIntentEngine != null) {
-                    Log.e("MAIN_ACTIVITY", "Calling AIIntentEngine.getIntent()");
-                    mlIntent = aiIntentEngine.getIntent(command);
-                    Log.e("MAIN_ACTIVITY", "ML returned intent = " + mlIntent);
-                }
+            if (aiIntentEngine != null) {
+                Log.e("MAIN_ACTIVITY", "Calling AIIntentEngine.getIntent()");
+                mlIntent = aiIntentEngine.getIntent(command);
+                Log.e("MAIN_ACTIVITY", "ML returned intent = " + mlIntent);
+            }
 
+            // 🟢 If ML detected intent → use orchestrator
+            if (mlIntent != -1) {
                 CommandOrchestrator orchestrator =
                         new CommandOrchestrator(this, this);
 
                 orchestrator.handleIntent(mlIntent);
+                return;
+            }
+
+            // 🟡 FALLBACK: Rule-based logic (Week-1)
+            IntentParser.ParsedIntent intent =
+                    IntentParser.parse(command);
+
+            executeIntent(intent, command);
+
             }
         }
     }
@@ -605,12 +620,27 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (command.contains("help") || command.contains("open help") || command.contains("help me")
-                || command.contains("how to use")) {
-            speak("Opening help and user guide Screen.");
-            Intent helpIntent = new Intent(this, HelperActivity.class);
-            startActivity(helpIntent);
-            return;
+                        || command.contains("how to use")) {
+                    speak("Opening help and user guide Screen.");
+                    Intent helpIntent = new Intent(this, HelperActivity.class);
+                    startActivity(helpIntent);
+                    return;
+                }
+        if (command.contains("click")
+                || command.contains("scroll")
+                || command.contains("back")
+                || command.contains("notification")) {
+
+            UniversalControlService service =
+                    UniversalControlService.getInstance();
+
+        if (service != null) {
+                service.performAction(command);
+                speak("Action executed");
+                return;
+            }
         }
+
 
         // 🟥 Default case — if no command matched
         speak("Sorry, I didn't understand that command.");
