@@ -421,9 +421,28 @@ public class MainActivity extends AppCompatActivity {
 
     private void startVoiceInput() {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Listening...");
+
+        intent.putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        );
+
+        intent.putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE,
+                Locale.getDefault()
+        );
+
+        // ⭐ OFFLINE PREFERENCE
+        intent.putExtra(
+                RecognizerIntent.EXTRA_PREFER_OFFLINE,
+                true
+        );
+
+        intent.putExtra(
+                RecognizerIntent.EXTRA_PROMPT,
+                "Listening (Offline mode preferred)"
+        );
+
         try {
             startActivityForResult(intent, 200);
         } catch (Exception e) {
@@ -501,7 +520,13 @@ public class MainActivity extends AppCompatActivity {
             executeIntent(intent, command);
 
             }
+             if (result == null || result.isEmpty()) {
+                speak("Offline speech recognition not available. Please try again.");
+                return;
+            }
         }
+       
+
     }
 
 
