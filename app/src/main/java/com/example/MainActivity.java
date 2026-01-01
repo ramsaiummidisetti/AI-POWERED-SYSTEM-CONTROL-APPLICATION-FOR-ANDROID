@@ -84,6 +84,9 @@ import com.example.ai.PatternDetector;
 import com.example.ai.AutomationSuggester;
 import com.example.ai.TaskScriptParser;
 import com.example.ai.ScriptEngine;
+import android.os.StrictMode;
+
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -116,6 +119,24 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean darkMode = prefs.getBoolean("dark_mode", false);
+
+        // STEP 1: Enable performance monitoring (Debug only)
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                    new StrictMode.ThreadPolicy.Builder()
+                            .detectAll()
+                            .penaltyLog()
+                            .build()
+            ); 
+
+            StrictMode.setVmPolicy(
+                    new StrictMode.VmPolicy.Builder()
+                            .detectAll()
+                            .penaltyLog()
+                            .build()
+            );
+        }
+
 
         if (loadThemePreference()) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
@@ -424,7 +445,8 @@ public class MainActivity extends AppCompatActivity {
 
             if (result != null && !result.isEmpty()) {
 
-                String command = result.get(0).toLowerCase(Locale.ROOT);
+                String command = result.get(0).toLowerCase();
+
                 updateVoiceFeedback("User", command);
 
                 List<String> actions =

@@ -6,6 +6,9 @@ plugins {
          namespace = "com.example"
         compileSdk = 35
 
+        buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         applicationId "com.example"
         minSdk = 21
