@@ -6,6 +6,8 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
 
 public class CommandOrchestrator {
 
@@ -104,4 +106,15 @@ public class CommandOrchestrator {
                 VoiceHelper.speak(context, "Sorry, I didn't understand that command");
         }
     }
+    private void safeStartActivity(Intent intent) {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+            } catch (Exception e) {
+                Log.e("ORCHESTRATOR", "Failed to start activity", e);
+            }
+        }, 600); // ⭐ critical delay
+    }
+
 }

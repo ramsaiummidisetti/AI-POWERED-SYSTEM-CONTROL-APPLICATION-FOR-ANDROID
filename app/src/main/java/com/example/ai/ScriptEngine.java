@@ -1,8 +1,6 @@
 package com.example.ai;
 
 import android.content.Context;
-import android.os.Handler;
-import android.os.Looper;
 
 import com.example.utils.CommandOrchestrator;
 
@@ -12,38 +10,34 @@ public class ScriptEngine {
 
     public static void execute(Context context, List<String> actions) {
 
-        // ✅ FIX: Context-only orchestrator
+        // ⭐ Always use Context-safe orchestrator
         CommandOrchestrator orchestrator =
                 new CommandOrchestrator(context);
 
-        Handler handler = new Handler(Looper.getMainLooper());
-        int delay = 0;
-
         for (String action : actions) {
 
-            int currentDelay = delay;
+            switch (action) {
+                case "youtube":
+                    orchestrator.handleIntent(0);
+                    break;
 
-            handler.postDelayed(() -> {
-                switch (action) {
-                    case "youtube":
-                        orchestrator.handleIntent(0);
-                        break;
+                case "chrome":
+                    orchestrator.handleIntent(3);
+                    break;
 
-                    case "chrome":
-                        orchestrator.handleIntent(3);
-                        break;
+                case "wifi":
+                    orchestrator.handleIntent(1);
+                    break;
 
-                    case "wifi":
-                        orchestrator.handleIntent(1);
-                        break;
+                case "settings":
+                    orchestrator.handleIntent(6);
+                    break;
+            }
 
-                    case "settings":
-                        orchestrator.handleIntent(6);
-                        break;
-                }
-            }, currentDelay);
-
-            delay += 1500; // delay between actions
+            // ⭐ Android 13+ SAFETY DELAY (VERY IMPORTANT)
+            try {
+                Thread.sleep(600);
+            } catch (InterruptedException ignored) {}
         }
     }
 }

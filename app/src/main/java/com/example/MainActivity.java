@@ -1,5 +1,7 @@
 package com.example;
 
+import com.example.utils.SpeechController;
+
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 
@@ -62,8 +64,8 @@ import com.example.utils.ReminderReceiver;
 import com.example.utils.DashboardAdapter;
 import com.example.utils.AlertManager;
 
-import android.speech.RecognizerIntent;
-import android.speech.SpeechRecognizer;
+// import android.speech.RecognizerIntent;
+// import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 
 import java.util.Locale;
@@ -86,8 +88,6 @@ import com.example.ai.TaskScriptParser;
 import com.example.ai.ScriptEngine;
 import android.os.StrictMode;
 
-
-
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -95,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
     private AlertManager alertManager;
 
     private AIIntentEngine aiIntentEngine;
-
 
     // RecyclerView card data
     private List<String> titles;
@@ -112,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
     private Queue<String> feedbackQueue = new LinkedList<>();
 
     private TextToSpeech textToSpeech;
+    private SpeechController speechController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,24 +119,35 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean darkMode = prefs.getBoolean("dark_mode", false);
+        // 04/02/26
+        speechController = new SpeechController(this, new SpeechController.Callback() {
+            @Override
+            public void onTextResult(String text) {
+                updateVoiceFeedback("User", text);
+                handleCommand(text);
+            }
 
+            @Override
+            public void onError(String error) {
+                updateVoiceFeedback("System", error);
+            }
+        });
+
+        // 04/02/26 end
         // STEP 1: Enable performance monitoring (Debug only)
         if (BuildConfig.DEBUG) {
             StrictMode.setThreadPolicy(
                     new StrictMode.ThreadPolicy.Builder()
                             .detectAll()
                             .penaltyLog()
-                            .build()
-            ); 
+                            .build());
 
             StrictMode.setVmPolicy(
                     new StrictMode.VmPolicy.Builder()
                             .detectAll()
                             .penaltyLog()
-                            .build()
-            );
+                            .build());
         }
-
 
         if (loadThemePreference()) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
@@ -213,14 +224,9 @@ public class MainActivity extends AppCompatActivity {
         // 🎤 Voice button
         Button voiceButton = findViewById(R.id.btn_voice);
         voiceButton.setOnClickListener(v -> {
-            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-            try {
-                startActivityForResult(intent, 200);
-            } catch (Exception e) {
-                Toast.makeText(this, "Voice recognition not supported", Toast.LENGTH_SHORT).show();
-            }
+            // startVoiceInput();
+
+            speechController.startListening();
         });
         FloatingActionButton openDashboardButton = findViewById(R.id.btn_open_dashboard);
         openDashboardButton.setOnClickListener(v -> {
@@ -292,29 +298,43 @@ public class MainActivity extends AppCompatActivity {
         WorkManager.getInstance(this).enqueue(new OneTimeWorkRequest.Builder(LogSyncWorker.class).build());
 
         // ✅ Schedule reminder
+        // ⭐ SAFE reminder scheduling (works on Android 6 → 15)
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
         Intent alarmIntent = new Intent(this, ReminderReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_IMMUTABLE);
+
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                0,
+                alarmIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
         if (alarmManager != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000,
-                        pendingIntent);
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, pendingIntent);
-            }
+            // ⭐ NO exact alarm → no crash on Android 12+
+            alarmManager.set(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 60000,
+                    pendingIntent);
         }
 
         // ✅ Smart suggestions
         SmartSuggestions.checkStorageAndSuggest(this);
         SmartSuggestions.checkBatteryAndSuggest(this);
+        runUsageAnalysisSafely();
+    }
 
-            List<String> apps =
-            UsagePatternAnalyzer.getRecentlyUsedApps(this);
+    private void runUsageAnalysisSafely() {
+        if (!hasUsageStatsPermission()) {
+            Log.w(TAG, "Usage stats permission not granted");
+            return;
+        }
 
-            String frequentApp =
-                    PatternDetector.detectRepeatedApp(apps);
+        new Handler().postDelayed(() -> {
+            List<String> apps = UsagePatternAnalyzer.getRecentlyUsedApps(this);
+
+            String frequentApp = PatternDetector.detectRepeatedApp(apps);
 
             AutomationSuggester.suggest(this, frequentApp);
+        }, 3000); // ⭐ delay prevents Android 15 kill
     }
 
     public boolean tryEnableBluetoothDirectly() {
@@ -419,116 +439,83 @@ public class MainActivity extends AppCompatActivity {
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
-    private void startVoiceInput() {
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+    // private void startVoiceInput() {
+    // Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
 
-        intent.putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-        );
+    // intent.putExtra(
+    // RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+    // RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
 
-        intent.putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE,
-                Locale.getDefault()
-        );
+    // intent.putExtra(
+    // RecognizerIntent.EXTRA_LANGUAGE,
+    // Locale.getDefault());
 
-        // ⭐ OFFLINE PREFERENCE
-        intent.putExtra(
-                RecognizerIntent.EXTRA_PREFER_OFFLINE,
-                true
-        );
+    // // ⭐ Try offline first
+    // intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
 
-        intent.putExtra(
-                RecognizerIntent.EXTRA_PROMPT,
-                "Listening (Offline mode preferred)"
-        );
+    // intent.putExtra(
+    // RecognizerIntent.EXTRA_PROMPT,
+    // "Listening...");
 
-        try {
-            startActivityForResult(intent, 200);
-        } catch (Exception e) {
-            Toast.makeText(this, "Speech not supported on this device", Toast.LENGTH_SHORT).show();
-        }
-    }
+    // try {
+    // startActivityForResult(intent, 200);
+    // } catch (Exception e) {
+    // // ⭐ HARD fallback
+    // speak("Speech recognition not available. Please type your command.");
+    // }
+    // }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    // @Override
+    // protected void onActivityResult(int requestCode, int resultCode, Intent data)
+    // {
 
-        Log.e("MAIN_ACTIVITY", "onActivityResult CALLED");
+    // Log.e("STT_DEBUG", "onActivityResult called");
 
-        super.onActivityResult(requestCode, resultCode, data);
+    // Log.e("MAIN_ACTIVITY", "onActivityResult CALLED");
 
-        if (requestCode == 200 && resultCode == RESULT_OK && data != null) {
+    // super.onActivityResult(requestCode, resultCode, data);
 
-            ArrayList<String> result =
-                    data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+    // if (requestCode == 200 && resultCode == RESULT_OK && data != null) {
 
-            if (result != null && !result.isEmpty()) {
+    // ArrayList<String> result =
+    // data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
-                String command = result.get(0).toLowerCase();
+    // if (result == null || result.isEmpty()) {
+    // speak("I couldn't hear that clearly. Please try again.");
+    // return;
+    // }
 
-                updateVoiceFeedback("User", command);
+    // String command = result.get(0).toLowerCase();
+    // speak("Command received");
 
-                List<String> actions =
-                TaskScriptParser.parseActions(command);
+    // updateVoiceFeedback("User", command);
 
-                if (!actions.isEmpty()) {
-                    ScriptEngine.execute(this, actions);
-                    return;
-                }
-                // 🧠 WEEK-3: MULTI-STEP SCRIPT DETECTION
-                if (command.contains(" and ")) {
+    // if (data == null) {
+    // Log.e("STT_DEBUG", "Intent data is NULL");
+    // speak("Speech failed. Try again.");
+    // return;
+    // }
 
-                    List<String> scriptActions =
-                            TaskScriptParser.parseActions(command);
-                        if (!scriptActions.isEmpty()) {
-                            ScriptEngine.execute(this, scriptActions);
-                            speak("Executing multiple actions");
-                            return;
-                        }
-                        }
-                // ✅ GUARANTEE ML ENGINE EXISTS
-                if (aiIntentEngine == null) {
-                    try {
-                        aiIntentEngine = new AIIntentEngine(this);
-                        Log.e("MAIN_ACTIVITY", "AIIntentEngine re-initialized");
-                    } catch (Exception e) {
-                        Log.e("MAIN_ACTIVITY", "AIIntentEngine init failed", e);
-                    }
-                }
-            // 🧠 AI Intent Detection
-            int mlIntent = -1;
+    // ArrayList<String> result =
+    // data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
-            if (aiIntentEngine != null) {
-                Log.e("MAIN_ACTIVITY", "Calling AIIntentEngine.getIntent()");
-                mlIntent = aiIntentEngine.getIntent(command);
-                Log.e("MAIN_ACTIVITY", "ML returned intent = " + mlIntent);
-            }
+    // if (result == null) {
+    // Log.e("STT_DEBUG", "STT result list is NULL");
+    // speak("Speech recognition failed.");
+    // return;
+    // }
 
-            // 🟢 If ML detected intent → use orchestrator
-            if (mlIntent != -1) {
-                CommandOrchestrator orchestrator =
-                        new CommandOrchestrator(this);
+    // if (result.isEmpty()) {
+    // Log.e("STT_DEBUG", "STT result list EMPTY");
+    // speak("I didn't catch that.");
+    // return;
+    // }
 
-                orchestrator.handleIntent(mlIntent);
-                return;
-            }
+    // Log.e("STT_DEBUG", "STT TEXT = " + result.get(0));
 
-            // 🟡 FALLBACK: Rule-based logic (Week-1)
-            IntentParser.ParsedIntent intent =
-                    IntentParser.parse(command);
+    // }
 
-            executeIntent(intent, command);
-
-            }
-             if (result == null || result.isEmpty()) {
-                speak("Offline speech recognition not available. Please try again.");
-                return;
-            }
-        }
-       
-
-    }
-
+    // }
 
     private void executeIntent(IntentParser.ParsedIntent intent, String command) {
 
@@ -699,27 +686,25 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (command.contains("help") || command.contains("open help") || command.contains("help me")
-                        || command.contains("how to use")) {
-                    speak("Opening help and user guide Screen.");
-                    Intent helpIntent = new Intent(this, HelperActivity.class);
-                    startActivity(helpIntent);
-                    return;
-                }
+                || command.contains("how to use")) {
+            speak("Opening help and user guide Screen.");
+            Intent helpIntent = new Intent(this, HelperActivity.class);
+            startActivity(helpIntent);
+            return;
+        }
         if (command.contains("click")
                 || command.contains("scroll")
                 || command.contains("back")
                 || command.contains("notification")) {
 
-            UniversalControlService service =
-                    UniversalControlService.getInstance();
+            UniversalControlService service = UniversalControlService.getInstance();
 
-        if (service != null) {
+            if (service != null) {
                 service.performAction(command);
                 speak("Action executed");
                 return;
             }
         }
-
 
         // 🟥 Default case — if no command matched
         speak("Sorry, I didn't understand that command.");
@@ -774,6 +759,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (speechController != null) {
+            speechController.destroy(); // ⭐ MANDATORY
+        }
         VoiceHelper.shutdown();
         super.onDestroy();
     }
@@ -850,6 +838,35 @@ public class MainActivity extends AppCompatActivity {
                 v.vibrate(50);
             }
         }
+    }
+
+    private void handleCommand(String command) {
+
+        // 🔥 GUARANTEE RESPONSE
+        updateVoiceFeedback("Assistant", "Processing command");
+        speak("Processing command");
+
+        // MULTI-STEP
+        if (command.contains(" and ")) {
+            List<String> actions = TaskScriptParser.parseActions(command);
+            if (!actions.isEmpty()) {
+                ScriptEngine.execute(this, actions);
+                return;
+            }
+        }
+
+        // ML
+        if (aiIntentEngine != null) {
+            int intent = aiIntentEngine.getIntent(command);
+            if (intent != -1) {
+                new CommandOrchestrator(this).handleIntent(intent);
+                return;
+            }
+        }
+
+        // FALLBACK RULE ENGINE
+        IntentParser.ParsedIntent parsed = IntentParser.parse(command);
+        executeIntent(parsed, command);
     }
 
 }
