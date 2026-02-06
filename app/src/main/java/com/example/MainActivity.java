@@ -131,6 +131,11 @@ public class MainActivity extends AppCompatActivity {
             public void onError(String error) {
                 updateVoiceFeedback("System", error);
             }
+            @Override
+            public void onPartialText(String partial) {
+                updateVoiceFeedback("Listening", partial);
+            }
+
         });
 
         // 04/02/26 end
