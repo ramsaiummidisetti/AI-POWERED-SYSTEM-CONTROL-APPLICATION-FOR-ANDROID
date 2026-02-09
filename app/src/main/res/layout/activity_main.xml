@@ -106,6 +106,15 @@
                     android:backgroundTint="@color/white"
                     android:text="🎙️"
                     android:textSize="36sp" />
+                <TextView
+                    android:id="@+id/tvListening"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Listening..."
+                    android:textSize="16sp"
+                    android:textColor="@android:color/white"
+                    android:visibility="gone"
+                    android:padding="8dp"/>
 
             <TextView
                     android:layout_width="wrap_content"

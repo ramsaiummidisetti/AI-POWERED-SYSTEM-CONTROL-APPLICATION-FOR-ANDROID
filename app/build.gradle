@@ -9,7 +9,7 @@ plugins {
         buildFeatures {
         buildConfig true
     }
-    defaultConfig {
+    defaultConfig{
         applicationId "com.example"
         minSdk = 21
         targetSdk = 35
@@ -42,5 +42,4 @@ dependencies {
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'org.tensorflow:tensorflow-lite:2.14.0'
      implementation 'com.google.mlkit:text-recognition:16.0.0'
-
 }

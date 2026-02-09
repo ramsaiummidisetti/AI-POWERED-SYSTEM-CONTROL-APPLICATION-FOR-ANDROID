@@ -113,32 +113,43 @@ public class MainActivity extends AppCompatActivity {
     private TextToSpeech textToSpeech;
     private SpeechController speechController;
 
+    private TextView tvListening;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean darkMode = prefs.getBoolean("dark_mode", false);
-        // 04/02/26
+        // 09/02/26
         speechController = new SpeechController(this, new SpeechController.Callback() {
+
+            @Override
+            public void onListening() {
+                tvListening.setVisibility(View.VISIBLE);
+                tvListening.setText("🎤 Listening...");
+            }
+
+            @Override
+            public void onPartialText(String text) {
+                tvListening.setText("🎤 " + text);
+            }
+
             @Override
             public void onTextResult(String text) {
+                tvListening.setVisibility(View.GONE);
                 updateVoiceFeedback("User", text);
                 handleCommand(text);
             }
 
             @Override
             public void onError(String error) {
-                updateVoiceFeedback("System", error);
+                tvListening.setVisibility(View.GONE);
+                updateVoiceFeedback("Assistant", error);
             }
-            @Override
-            public void onPartialText(String partial) {
-                updateVoiceFeedback("Listening", partial);
-            }
-
         });
 
-        // 04/02/26 end
+        // 09/02/26 end
         // STEP 1: Enable performance monitoring (Debug only)
         if (BuildConfig.DEBUG) {
             StrictMode.setThreadPolicy(
@@ -160,6 +171,7 @@ public class MainActivity extends AppCompatActivity {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
         setContentView(R.layout.activity_main);
+        tvListening = findViewById(R.id.tvListening);
 
         try {
             aiIntentEngine = new AIIntentEngine(this);
@@ -846,6 +858,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleCommand(String command) {
+
+        // ⭐ HIGH-PRIORITY SYSTEM QUERIES
+        if (command.contains("battery")) {
+            String battery = getBatteryInfo();
+            updateVoiceFeedback("Assistant", battery);
+            speak(battery);
+            return;
+        }
 
         // 🔥 GUARANTEE RESPONSE
         updateVoiceFeedback("Assistant", "Processing command");
