@@ -2,6 +2,7 @@ package com.example.accessibility;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.os.Bundle;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -12,99 +13,279 @@ import java.util.List;
 public class UniversalControlService extends AccessibilityService {
 
     private static UniversalControlService instance;
-    private static final String TAG = "ACCESS_TEST";
+    private static final String TAG = "UNIVERSAL_CTRL";
 
-    // ==============================
-    // SERVICE LIFECYCLE
-    // ==============================
+    private String currentPackage = "";
+
+    public static UniversalControlService getInstance() {
+        return instance;
+    }
+
+    public String getCurrentPackage() {
+        return currentPackage;
+    }
+
+    // ==========================================================
+    // SERVICE CONNECT
+    // ==========================================================
 
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
-
         instance = this;
 
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
-        info.eventTypes =
-                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED |
-                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED |
+                          AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
 
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
-        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
-        info.notificationTimeout = 100;
+
+        info.flags =
+                AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS |
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS |
+                AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
+
+        info.notificationTimeout = 50;
 
         setServiceInfo(info);
 
-        Log.e(TAG, "UniversalControlService Connected");
+        Log.e(TAG, "SERVICE CONNECTED");
     }
+
+    // ==========================================================
+    // PACKAGE TRACKING
+    // ==========================================================
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        Log.e(TAG, "Accessibility Event Received | Type = " + event.getEventType());
+
+        if (event == null) return;
+
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+
+            CharSequence pkg = event.getPackageName();
+
+            if (pkg != null) {
+                currentPackage = pkg.toString();
+                Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
+            }
+        }
     }
 
     @Override
     public void onInterrupt() {
-        Log.e(TAG, "Accessibility Service Interrupted");
+        Log.e(TAG, "Service interrupted");
     }
 
-    // ==============================
-    // STEP-8 : SEMANTIC UI CONTROL
-    // ==============================
+    // ==========================================================
+    // MAIN EXECUTION ENTRY
+    // ==========================================================
 
     public void performAction(String command) {
 
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return;
-
-        command = command.toLowerCase();
-
-        if (command.contains("search")) {
-            clickSemantic(root, "search");
+        if (currentPackage == null) {
+            Log.e(TAG, "No active package");
+            return;
         }
-        else if (command.contains("scroll down")) {
-            root.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+
+        // 🚫 Ignore own app
+        if (currentPackage.equals(getPackageName())) {
+            Log.e(TAG, "Ignoring own app");
+            return;
+        }
+
+        // 🚫 Ignore system UI
+        if (currentPackage.contains("systemui")) {
+            Log.e(TAG, "Ignoring system UI");
+            return;
+        }
+
+        // 🚫 Ignore launcher
+        if (currentPackage.contains("launcher")) {
+            Log.e(TAG, "Ignoring launcher");
+            return;
+        }
+
+        AccessibilityNodeInfo root = getSafeRoot();
+
+        if (root == null) {
+            Log.e(TAG, "Root not ready");
+            return;
+        }
+
+        command = command.toLowerCase().trim();
+
+        Log.e(TAG, "Trying action in package: " + currentPackage);
+
+        if (command.contains("scroll down")) {
+            scroll(root, true);
         }
         else if (command.contains("scroll up")) {
-            root.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+            scroll(root, false);
         }
-        else if (command.contains("go back")) {
-            performGlobalAction(GLOBAL_ACTION_BACK);
+        else if (command.startsWith("click ") || command.startsWith("tap ")) {
+
+            String keyword = command
+                    .replaceFirst("click ", "")
+                    .replaceFirst("tap ", "");
+
+            clickSemantic(root, keyword);
         }
-        else if (command.contains("notifications")) {
-            performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);
+        else if (command.startsWith("type ")) {
+
+            String text = command.replaceFirst("type ", "");
+
+            typeText(root, text);
         }
+
+        root.recycle();
+    }// ==========================================================
+    // SAFE ROOT (NO BLOCKING)
+    // ==========================================================
+
+    private AccessibilityNodeInfo getSafeRoot() {
+
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+
+        if (root == null) {
+            Log.e(TAG, "Root is null");
+            return null;
+        }
+
+        return root;
     }
 
-    // ==============================
-    // CORE STEP-8 LOGIC
-    // ==============================
+    // ==========================================================
+    // SCROLL
+    // ==========================================================
 
-    private void clickSemantic(AccessibilityNodeInfo root, String keyword) {
+    private void scroll(AccessibilityNodeInfo root, boolean forward) {
+
+        Log.e(TAG, "Trying scroll in package: " + currentPackage);
 
         List<AccessibilityNodeInfo> nodes = new ArrayList<>();
         collectNodes(root, nodes);
 
         for (AccessibilityNodeInfo node : nodes) {
 
-            if (!node.isClickable()) continue;
+            if (node == null) continue;
 
-            CharSequence text = node.getText();
-            CharSequence desc = node.getContentDescription();
+            if (node.isScrollable()) {
 
-            if ((text != null && text.toString().toLowerCase().contains(keyword)) ||
-                (desc != null && desc.toString().toLowerCase().contains(keyword))) {
+                boolean result = node.performAction(
+                        forward ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                                : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+                );
 
-                node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                Log.e(TAG, "Clicked semantic UI element: " + keyword);
+                Log.e(TAG, "Scroll result: " + result);
+
+                recycleAll(nodes);
                 return;
             }
         }
 
-        Log.e(TAG, "No matching UI element found for: " + keyword);
+        recycleAll(nodes);
+    }
+        
+
+    // ==========================================================
+    // CLICK
+    // ==========================================================
+
+    private void clickSemantic(AccessibilityNodeInfo root, String keyword) {
+
+        List<AccessibilityNodeInfo> nodes = new ArrayList<>();
+        collectNodes(root, nodes);
+
+        keyword = keyword.toLowerCase().trim();
+
+        for (AccessibilityNodeInfo node : nodes) {
+
+            if (node == null) continue;
+            if (!node.isVisibleToUser()) continue;
+
+            CharSequence text = node.getText();
+            CharSequence desc = node.getContentDescription();
+
+            boolean match = false;
+
+            if (text != null &&
+                    text.toString().toLowerCase().contains(keyword)) {
+                match = true;
+            }
+
+            if (!match && desc != null &&
+                    desc.toString().toLowerCase().contains(keyword)) {
+                match = true;
+            }
+
+            if (match) {
+
+                AccessibilityNodeInfo parent = node;
+
+                while (parent != null) {
+
+                    if (parent.isClickable()) {
+
+                        parent.performAction(
+                                AccessibilityNodeInfo.ACTION_CLICK
+                        );
+
+                        Log.e(TAG, "Clicked: " + keyword);
+
+                        recycleAll(nodes);
+                        return;
+                    }
+
+                    parent = parent.getParent();
+                }
+            }
+        }
+
+        recycleAll(nodes);
     }
 
-    private void collectNodes(AccessibilityNodeInfo node, List<AccessibilityNodeInfo> list) {
+    // ==========================================================
+    // TYPE
+    // ==========================================================
+
+    private void typeText(AccessibilityNodeInfo root, String text) {
+
+        List<AccessibilityNodeInfo> nodes = new ArrayList<>();
+        collectNodes(root, nodes);
+
+        for (AccessibilityNodeInfo node : nodes) {
+
+            if (node == null) continue;
+
+            if (node.isEditable()) {
+
+                Bundle args = new Bundle();
+                args.putCharSequence(
+                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                        text
+                );node.performAction(
+                        AccessibilityNodeInfo.ACTION_SET_TEXT,
+                        args
+                );
+
+                Log.e(TAG, "Typed: " + text);
+
+                recycleAll(nodes);
+                return;
+            }
+        }
+
+        recycleAll(nodes);
+    }
+
+    // ==========================================================
+    // NODE COLLECTION
+    // ==========================================================
+
+    private void collectNodes(AccessibilityNodeInfo node,
+                              List<AccessibilityNodeInfo> list) {
+
         if (node == null) return;
 
         list.add(node);
@@ -114,11 +295,10 @@ public class UniversalControlService extends AccessibilityService {
         }
     }
 
-    // ==============================
-    // INSTANCE ACCESS
-    // ==============================
+    private void recycleAll(List<AccessibilityNodeInfo> nodes) {
 
-    public static UniversalControlService getInstance() {
-        return instance;
+        for (AccessibilityNodeInfo n : nodes) {
+            if (n != null) n.recycle();
+        }
     }
 }

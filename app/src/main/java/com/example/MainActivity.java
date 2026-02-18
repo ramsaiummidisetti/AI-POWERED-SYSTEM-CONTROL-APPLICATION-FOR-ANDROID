@@ -1,5 +1,8 @@
 package com.example;
 
+import android.net.Uri;
+import android.provider.Settings;
+import android.os.Build;
 import com.example.utils.SpeechController;
 
 import android.view.GestureDetector;
@@ -9,6 +12,9 @@ import com.example.utils.ContextManager;
 import com.example.utils.GestureHandler;
 
 import com.example.utils.AIIntentEngine;
+
+import com.example.voice.WakeWordEngine;
+import com.example.voice.WakeWordListener;
 
 import android.Manifest;
 import android.app.AlarmManager;
@@ -64,8 +70,6 @@ import com.example.utils.ReminderReceiver;
 import com.example.utils.DashboardAdapter;
 import com.example.utils.AlertManager;
 
-// import android.speech.RecognizerIntent;
-// import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 
 import java.util.Locale;
@@ -73,6 +77,7 @@ import java.util.Locale;
 import com.example.utils.IntentParser;
 import com.example.utils.CommandOrchestrator;
 import com.example.utils.VoiceHelper;
+import com.example.utils.VoiceFeedback;
 
 import com.example.accessibility.UniversalControlService;
 
@@ -88,7 +93,9 @@ import com.example.ai.TaskScriptParser;
 import com.example.ai.ScriptEngine;
 import android.os.StrictMode;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements WakeWordListener, VoiceFeedback {
+
+    private WakeWordEngine wakeWordEngine;
 
     private static final String TAG = "MainActivity";
     private boolean isDark = false;
@@ -111,13 +118,18 @@ public class MainActivity extends AppCompatActivity {
     private Queue<String> feedbackQueue = new LinkedList<>();
 
     private TextToSpeech textToSpeech;
+    private boolean ttsReady = false;
+
     private SpeechController speechController;
 
     private TextView tvListening;
+    private CommandOrchestrator commandOrchestrator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        commandOrchestrator = new CommandOrchestrator(this, this);
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean darkMode = prefs.getBoolean("dark_mode", false);
@@ -126,26 +138,29 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onListening() {
+                tvListening.setText("🎤 Listening… Speak now");
                 tvListening.setVisibility(View.VISIBLE);
-                tvListening.setText("🎤 Listening...");
+
             }
 
             @Override
             public void onPartialText(String text) {
-                tvListening.setText("🎤 " + text);
+                updateVoiceFeedback("User", text);
             }
 
             @Override
-            public void onTextResult(String text) {
+            public void onFinalText(String text) {
                 tvListening.setVisibility(View.GONE);
                 updateVoiceFeedback("User", text);
-                handleCommand(text);
+                handleIntent(text.toLowerCase());
+
             }
 
             @Override
-            public void onError(String error) {
+            public void onError(String message) {
                 tvListening.setVisibility(View.GONE);
-                updateVoiceFeedback("Assistant", error);
+                updateVoiceFeedback("Assistant", message);
+
             }
         });
 
@@ -171,10 +186,42 @@ public class MainActivity extends AppCompatActivity {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
         setContentView(R.layout.activity_main);
+      
+        // 🔥 Overlay permission check
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        textToSpeech = new TextToSpeech(this, status -> {
+
+            if (status == TextToSpeech.SUCCESS) {
+
+                int result = textToSpeech.setLanguage(Locale.US);
+
+                textToSpeech.setSpeechRate(1.0f);
+                textToSpeech.setPitch(1.0f);
+
+                if (result == TextToSpeech.LANG_MISSING_DATA ||
+                        result == TextToSpeech.LANG_NOT_SUPPORTED) {
+
+                    Log.e("TTS", "Language not supported");
+                    ttsReady = false;
+
+                } else {
+                    ttsReady = true;
+                    Log.e("TTS", "TTS Initialized Successfully");
+                }
+
+            } else {
+                Log.e("TTS", "TTS Initialization Failed");
+                ttsReady = false;
+            }
+        });
+
         tvListening = findViewById(R.id.tvListening);
 
+        wakeWordEngine = new WakeWordEngine(this);
+        wakeWordEngine.start();
+
         try {
-            aiIntentEngine = new AIIntentEngine(this);
+            aiIntentEngine = AIIntentEngine.getInstance(this);
             Log.i(TAG, "AIIntentEngine initialized successfully");
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize AIIntentEngine", e);
@@ -205,33 +252,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }));
 
-        // ✅ THEN attach to main layout
-        // ScrollView mainLayout = findViewById(R.id.mainLayout);
-        // if (mainLayout != null) {
-        // mainLayout.setOnTouchListener((v, event) ->
-        // gestureDetector.onTouchEvent(event));
-        // }
-
         VoiceHelper.init(this);
         VoiceHelper.speak(this, "Welcome to Command Titan");
-
-        // textToSpeech = new TextToSpeech(this, status -> {
-        // if (status == TextToSpeech.SUCCESS) {
-        // int result = textToSpeech.setLanguage(Locale.ENGLISH);
-        // textToSpeech.setPitch(1.1f);
-        // textToSpeech.setSpeechRate(1.0f);
-
-        // if (result == TextToSpeech.LANG_MISSING_DATA ||
-        // result == TextToSpeech.LANG_NOT_SUPPORTED) {
-        // Toast.makeText(this, "TTS language not supported",
-        // Toast.LENGTH_SHORT).show();
-        // } else {
-        // Log.i("TTS", "Text-to-Speech initialized successfully");
-        // }
-        // } else {
-        // Toast.makeText(this, "TTS initialization failed", Toast.LENGTH_SHORT).show();
-        // }
-        // });
 
         voiceFeedbackContainer = findViewById(R.id.voiceFeedbackContainer);
         voiceScrollView = findViewById(R.id.voiceScrollView);
@@ -240,11 +262,13 @@ public class MainActivity extends AppCompatActivity {
 
         // 🎤 Voice button
         Button voiceButton = findViewById(R.id.btn_voice);
-        voiceButton.setOnClickListener(v -> {
-            // startVoiceInput();
 
-            speechController.startListening();
+        voiceButton.setOnClickListener(v -> {
+
+
+         speechController.startListening();
         });
+
         FloatingActionButton openDashboardButton = findViewById(R.id.btn_open_dashboard);
         openDashboardButton.setOnClickListener(v -> {
             v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
@@ -309,6 +333,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
             }
+           
         });
 
         // ✅ Schedule background work
@@ -337,6 +362,7 @@ public class MainActivity extends AppCompatActivity {
         SmartSuggestions.checkStorageAndSuggest(this);
         SmartSuggestions.checkBatteryAndSuggest(this);
         runUsageAnalysisSafely();
+        }
     }
 
     private void runUsageAnalysisSafely() {
@@ -351,7 +377,8 @@ public class MainActivity extends AppCompatActivity {
             String frequentApp = PatternDetector.detectRepeatedApp(apps);
 
             AutomationSuggester.suggest(this, frequentApp);
-        }, 3000); // ⭐ delay prevents Android 15 kill
+        }, 3000); // ⭐ delay prevents Android 15 kill and
+
     }
 
     public boolean tryEnableBluetoothDirectly() {
@@ -456,277 +483,199 @@ public class MainActivity extends AppCompatActivity {
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
-    // private void startVoiceInput() {
-    // Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+    // private void executeIntent(IntentParser.ParsedIntent intent, String command) {
 
-    // intent.putExtra(
-    // RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-    // RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+    //     switch (intent.target) {
+    //         case "bluetooth":
+    //             speak("Opening Bluetooth settings.");
+    //             startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+    //             return;
 
-    // intent.putExtra(
-    // RecognizerIntent.EXTRA_LANGUAGE,
-    // Locale.getDefault());
+    //         case "usage":
+    //             String usage = UsageStatsHelper.getUsageSummary(this);
+    //             speak("Here is your app usage summary.");
+    //             Toast.makeText(this, usage, Toast.LENGTH_LONG).show();
+    //             return;
 
-    // // ⭐ Try offline first
-    // intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+    //         case "darkmode":
+    //             isDark = true;
+    //             saveThemePreference(true);
+    //             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+    //             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    //             speak("Dark mode activated");
+    //             return;
 
-    // intent.putExtra(
-    // RecognizerIntent.EXTRA_PROMPT,
-    // "Listening...");
+    //         case "lightmode":
+    //             isDark = false;
+    //             saveThemePreference(false);
+    //             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+    //             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    //             speak("Light mode activated");
+    //             return;
 
-    // try {
-    // startActivityForResult(intent, 200);
-    // } catch (Exception e) {
-    // // ⭐ HARD fallback
-    // speak("Speech recognition not available. Please type your command.");
+    //         case "time":
+    //             String time = java.text.DateFormat.getTimeInstance().format(new java.util.Date());
+    //             speak("The current time is " + time);
+    //             return;
+
+    //         case "exit":
+    //             speak("Closing the application. Goodbye!");
+    //             finishAffinity();
+    //             return;
+
+    //     }
+
+    //     // 🟡 ✅ NEW: Fallback keyword detection (put this BEFORE default)
+    //     if (command.contains("battery")) {
+    //         speak("Battery level is " + getBatteryInfo());
+    //         return;
+    //     }
+
+    //     if (command.contains("wifi") || command.contains("wi-fi") ||
+    //             command.contains("internet") || command.contains("network")) {
+
+    //         String netStatus = getNetworkStatusFallback().toLowerCase(Locale.ROOT);
+
+    //         String reply;
+    //         if (netStatus.contains("no") || netStatus.contains("unknown")) {
+    //             reply = "You are currently offline. Please check your Wi-Fi or mobile data.";
+    //         } else if (netStatus.contains("wi-fi")) {
+    //             reply = "Wi-Fi is connected and working fine.";
+    //         } else if (netStatus.contains("mobile")) {
+    //             reply = "Mobile data connection is active.";
+    //         } else if (netStatus.contains("other")) {
+    //             reply = "You are connected to another type of network.";
+    //         } else {
+    //             reply = "Network status: " + netStatus;
+    //         }
+
+    //         speak(reply);
+    //         updateVoiceFeedback("Assistant", reply);
+    //         return;
+    //     }
+
+    //     if (command.contains("bluetooth")) {
+
+    //         if (command.contains("turn on") || command.contains("enable")) {
+    //             if (!isBluetoothOn()) {
+    //                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+    //                     boolean success = tryEnableBluetoothDirectly();
+    //                     if (success)
+    //                         speak("Bluetooth has been turned on successfully.");
+    //                     else
+    //                         speak("Unable to turn on Bluetooth directly. Please enable it manually.");
+    //                 } else {
+    //                     // 🔹 Android 12 + — open system panel
+    //                     Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+    //                     startActivity(enableBtIntent);
+    //                     speak("Opening Bluetooth settings. Please confirm to turn it on.");
+    //                 }
+    //             } else {
+    //                 speak("Bluetooth is already on.");
+    //             }
+    //             return;
+    //         }
+
+    //         if (command.contains("turn off") || command.contains("disable")) {
+    //             if (isBluetoothOn()) {
+    //                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+    //                     boolean success = tryDisableBluetoothDirectly();
+    //                     if (success)
+    //                         speak("Bluetooth has been turned off successfully.");
+    //                     else
+    //                         speak("Unable to turn off Bluetooth directly. Please disable it manually.");
+    //                 } else {
+    //                     // 🔹 Android 12 + — open settings page
+    //                     Intent panelIntent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+    //                     startActivity(panelIntent);
+    //                     speak("Opening Bluetooth settings. Please turn it off manually.");
+    //                 }
+    //             } else {
+    //                 speak("Bluetooth is already off.");
+    //             }
+    //             return;
+    //         }
+
+    //         // ✅ Just status query
+    //         if (isBluetoothOn())
+    //             speak("Bluetooth is currently on.");
+    //         else
+    //             speak("Bluetooth is currently off.");
+    //         return;
+    //     }
+
+    //     if (command.matches(".*(dashboard|control|center|home|system control center).*")) {
+    //         speak("Opening system control center.");
+    //         Intent dashIntent = new Intent(this, DashboardScreenActivity.class);
+    //         startActivity(dashIntent);
+    //         return;
+    //     }
+    //     // 🔵 Additional Phase 1 Commands (Non-destructive)
+    //     if (command.contains("date")) {
+    //         String date = java.text.DateFormat.getDateInstance().format(new java.util.Date());
+    //         speak("Today's date is " + date);
+    //         return;
+    //     }
+
+    //     if (command.contains("settings")) {
+    //         speak("Opening settings.");
+    //         startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+    //         return;
+    //     }
+
+    //     if (command.contains("flashlight") || command.contains("torch")) {
+    //         android.hardware.camera2.CameraManager camManager = (android.hardware.camera2.CameraManager) getSystemService(
+    //                 Context.CAMERA_SERVICE);
+    //         try {
+    //             String camId = camManager.getCameraIdList()[0];
+    //             if (command.contains("on")) {
+    //                 camManager.setTorchMode(camId, true);
+    //                 speak("Flashlight turned on.");
+    //             } else if (command.contains("off")) {
+    //                 camManager.setTorchMode(camId, false);
+    //                 speak("Flashlight turned off.");
+    //             } else {
+    //                 speak("Say turn on or turn off flashlight.");
+    //             }
+    //         } catch (Exception e) {
+    //             speak("Flashlight not supported on this device.");
+    //         }
+    //         return;
+    //     }
+
+    //     if (command.contains("restart app")) {
+    //         speak("Restarting the app.");
+    //         Intent Rintent = getIntent();
+    //         finish();
+    //         startActivity(Rintent);
+    //         return;
+    //     }
+
+    //     if (command.contains("help") || command.contains("open help") || command.contains("help me")
+    //             || command.contains("how to use")) {
+    //         speak("Opening help and user guide Screen.");
+    //         Intent helpIntent = new Intent(this, HelperActivity.class);
+    //         startActivity(helpIntent);
+    //         return;
+    //     }
+    //     if (command.contains("click")
+    //             || command.contains("scroll")
+    //             || command.contains("back")
+    //             || command.contains("notification")) {
+
+    //         UniversalControlService service = UniversalControlService.getInstance();
+
+    //         if (service != null) {
+    //             service.performAction(command);
+    //             speak("Action executed");
+    //             return;
+    //         }
+    //     }
+
+    //     // 🟥 Default case — if no command matched
+    //     speak("Sorry, I didn't understand that command.");
+    //     Toast.makeText(this, "Command not recognized", Toast.LENGTH_SHORT).show();
     // }
-    // }
-
-    // @Override
-    // protected void onActivityResult(int requestCode, int resultCode, Intent data)
-    // {
-
-    // Log.e("STT_DEBUG", "onActivityResult called");
-
-    // Log.e("MAIN_ACTIVITY", "onActivityResult CALLED");
-
-    // super.onActivityResult(requestCode, resultCode, data);
-
-    // if (requestCode == 200 && resultCode == RESULT_OK && data != null) {
-
-    // ArrayList<String> result =
-    // data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-
-    // if (result == null || result.isEmpty()) {
-    // speak("I couldn't hear that clearly. Please try again.");
-    // return;
-    // }
-
-    // String command = result.get(0).toLowerCase();
-    // speak("Command received");
-
-    // updateVoiceFeedback("User", command);
-
-    // if (data == null) {
-    // Log.e("STT_DEBUG", "Intent data is NULL");
-    // speak("Speech failed. Try again.");
-    // return;
-    // }
-
-    // ArrayList<String> result =
-    // data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-
-    // if (result == null) {
-    // Log.e("STT_DEBUG", "STT result list is NULL");
-    // speak("Speech recognition failed.");
-    // return;
-    // }
-
-    // if (result.isEmpty()) {
-    // Log.e("STT_DEBUG", "STT result list EMPTY");
-    // speak("I didn't catch that.");
-    // return;
-    // }
-
-    // Log.e("STT_DEBUG", "STT TEXT = " + result.get(0));
-
-    // }
-
-    // }
-
-    private void executeIntent(IntentParser.ParsedIntent intent, String command) {
-
-        switch (intent.target) {
-            case "bluetooth":
-                speak("Opening Bluetooth settings.");
-                startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
-                return;
-
-            case "usage":
-                String usage = UsageStatsHelper.getUsageSummary(this);
-                speak("Here is your app usage summary.");
-                Toast.makeText(this, usage, Toast.LENGTH_LONG).show();
-                return;
-
-            case "darkmode":
-                isDark = true;
-                saveThemePreference(true);
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                speak("Dark mode activated");
-                return;
-
-            case "lightmode":
-                isDark = false;
-                saveThemePreference(false);
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                speak("Light mode activated");
-                return;
-
-            case "time":
-                String time = java.text.DateFormat.getTimeInstance().format(new java.util.Date());
-                speak("The current time is " + time);
-                return;
-
-            case "exit":
-                speak("Closing the application. Goodbye!");
-                finishAffinity();
-                return;
-
-        }
-
-        // 🟡 ✅ NEW: Fallback keyword detection (put this BEFORE default)
-        if (command.contains("battery")) {
-            speak("Battery level is " + getBatteryInfo());
-            return;
-        }
-
-        if (command.contains("wifi") || command.contains("wi-fi") ||
-                command.contains("internet") || command.contains("network")) {
-
-            String netStatus = getNetworkStatusFallback().toLowerCase(Locale.ROOT);
-
-            String reply;
-            if (netStatus.contains("no") || netStatus.contains("unknown")) {
-                reply = "You are currently offline. Please check your Wi-Fi or mobile data.";
-            } else if (netStatus.contains("wi-fi")) {
-                reply = "Wi-Fi is connected and working fine.";
-            } else if (netStatus.contains("mobile")) {
-                reply = "Mobile data connection is active.";
-            } else if (netStatus.contains("other")) {
-                reply = "You are connected to another type of network.";
-            } else {
-                reply = "Network status: " + netStatus;
-            }
-
-            speak(reply);
-            updateVoiceFeedback("Assistant", reply);
-            return;
-        }
-
-        if (command.contains("bluetooth")) {
-
-            if (command.contains("turn on") || command.contains("enable")) {
-                if (!isBluetoothOn()) {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                        boolean success = tryEnableBluetoothDirectly();
-                        if (success)
-                            speak("Bluetooth has been turned on successfully.");
-                        else
-                            speak("Unable to turn on Bluetooth directly. Please enable it manually.");
-                    } else {
-                        // 🔹 Android 12 + — open system panel
-                        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                        startActivity(enableBtIntent);
-                        speak("Opening Bluetooth settings. Please confirm to turn it on.");
-                    }
-                } else {
-                    speak("Bluetooth is already on.");
-                }
-                return;
-            }
-
-            if (command.contains("turn off") || command.contains("disable")) {
-                if (isBluetoothOn()) {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                        boolean success = tryDisableBluetoothDirectly();
-                        if (success)
-                            speak("Bluetooth has been turned off successfully.");
-                        else
-                            speak("Unable to turn off Bluetooth directly. Please disable it manually.");
-                    } else {
-                        // 🔹 Android 12 + — open settings page
-                        Intent panelIntent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
-                        startActivity(panelIntent);
-                        speak("Opening Bluetooth settings. Please turn it off manually.");
-                    }
-                } else {
-                    speak("Bluetooth is already off.");
-                }
-                return;
-            }
-
-            // ✅ Just status query
-            if (isBluetoothOn())
-                speak("Bluetooth is currently on.");
-            else
-                speak("Bluetooth is currently off.");
-            return;
-        }
-
-        if (command.matches(".*(dashboard|control|center|home|system control center).*")) {
-            speak("Opening system control center.");
-            Intent dashIntent = new Intent(this, DashboardScreenActivity.class);
-            startActivity(dashIntent);
-            return;
-        }
-        // 🔵 Additional Phase 1 Commands (Non-destructive)
-        if (command.contains("date")) {
-            String date = java.text.DateFormat.getDateInstance().format(new java.util.Date());
-            speak("Today's date is " + date);
-            return;
-        }
-
-        if (command.contains("settings")) {
-            speak("Opening settings.");
-            startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
-            return;
-        }
-
-        if (command.contains("flashlight") || command.contains("torch")) {
-            android.hardware.camera2.CameraManager camManager = (android.hardware.camera2.CameraManager) getSystemService(
-                    Context.CAMERA_SERVICE);
-            try {
-                String camId = camManager.getCameraIdList()[0];
-                if (command.contains("on")) {
-                    camManager.setTorchMode(camId, true);
-                    speak("Flashlight turned on.");
-                } else if (command.contains("off")) {
-                    camManager.setTorchMode(camId, false);
-                    speak("Flashlight turned off.");
-                } else {
-                    speak("Say turn on or turn off flashlight.");
-                }
-            } catch (Exception e) {
-                speak("Flashlight not supported on this device.");
-            }
-            return;
-        }
-
-        if (command.contains("restart app")) {
-            speak("Restarting the app.");
-            Intent Rintent = getIntent();
-            finish();
-            startActivity(Rintent);
-            return;
-        }
-
-        if (command.contains("help") || command.contains("open help") || command.contains("help me")
-                || command.contains("how to use")) {
-            speak("Opening help and user guide Screen.");
-            Intent helpIntent = new Intent(this, HelperActivity.class);
-            startActivity(helpIntent);
-            return;
-        }
-        if (command.contains("click")
-                || command.contains("scroll")
-                || command.contains("back")
-                || command.contains("notification")) {
-
-            UniversalControlService service = UniversalControlService.getInstance();
-
-            if (service != null) {
-                service.performAction(command);
-                speak("Action executed");
-                return;
-            }
-        }
-
-        // 🟥 Default case — if no command matched
-        speak("Sorry, I didn't understand that command.");
-        Toast.makeText(this, "Command not recognized", Toast.LENGTH_SHORT).show();
-    }
 
     public boolean isBluetoothOn() {
         return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
@@ -742,22 +691,44 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
         startActivity(intent);
     }
+    // AudioManager audioManager =
+    // (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+    // audioManager.requestAudioFocus(
+    // null,
+    // AudioManager.STREAM_MUSIC,
+    // AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+    // );
 
     // Simple speak() replacement without TTS (to prevent app crash)
     // Simple speak() without TTS
-    private void speak(String text) {
+    @Override
+    public void speak(String text) {
 
-        if (text == null || text.trim().isEmpty())
+        if (!ttsReady || textToSpeech == null) {
+            Log.e("TTS", "TTS not ready");
             return;
+        }
 
-        android.util.Log.i("VoiceOutput", text);
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
-        updateVoiceFeedback("Assistant", text);
+        textToSpeech.stop();
 
-        // ✅ Use shared voice engine for actual speech
-        VoiceHelper.speak(this, text);
+        textToSpeech.speak(
+                text,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "COMMAND_TITAN_TTS");
 
+        Log.e("TTS", "Speaking: " + text);
     }
+
+    // public void speak(String text) {
+    // if (textToSpeech != null) {
+    // textToSpeech.speak(text,
+    // TextToSpeech.QUEUE_FLUSH,
+    // null,
+    // null);
+    // }
+    // }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
@@ -776,9 +747,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        if (speechController != null) {
-            speechController.destroy(); // ⭐ MANDATORY
+        if (wakeWordEngine != null) {
+            wakeWordEngine.stop();
         }
+        if (speechController != null) {
+            speechController.destroy();
+        }
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+
         VoiceHelper.shutdown();
         super.onDestroy();
     }
@@ -857,41 +836,70 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void handleCommand(String command) {
+    private void handleIntent(String userCommand) {
 
-        // ⭐ HIGH-PRIORITY SYSTEM QUERIES
-        if (command.contains("battery")) {
-            String battery = getBatteryInfo();
-            updateVoiceFeedback("Assistant", battery);
-            speak(battery);
+        if (userCommand == null || userCommand.trim().isEmpty())
+            return;
+
+        userCommand = userCommand.toLowerCase().trim();
+
+        Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
+
+        // =====================================================
+        // 🔥 PRIORITY 1 — MULTI STEP SCRIPTING
+        // =====================================================
+        List<String> actions = TaskScriptParser.parseActions(userCommand);
+        if (actions.size() > 1) {
+            ScriptEngine.execute(commandOrchestrator, actions);
+            return;
+        }
+        
+
+        // =====================================================
+        // 🔥 PRIORITY 2 — DIRECT UI AUTOMATION (NO ML)
+        // =====================================================
+        if (userCommand.startsWith("click ") ||
+                userCommand.startsWith("tap ") ||
+                userCommand.startsWith("type ") ||
+                userCommand.contains("scroll") ||
+                userCommand.equals("back") ||
+                userCommand.equals("home") ||
+                userCommand.contains("notification")) {
+
+            UniversalControlService service = UniversalControlService.getInstance();
+
+            if (service != null) {
+                service.performAction(userCommand);
+            } else {
+                speak("Accessibility service not active");
+            }
+
             return;
         }
 
-        // 🔥 GUARANTEE RESPONSE
-        updateVoiceFeedback("Assistant", "Processing command");
-        speak("Processing command");
+        // =====================================================
+        // 🔥 PRIORITY 3 — ML INTENT CLASSIFICATION
+        // =====================================================
+        String predictedIntent = null;
 
-        // MULTI-STEP
-        if (command.contains(" and ")) {
-            List<String> actions = TaskScriptParser.parseActions(command);
-            if (!actions.isEmpty()) {
-                ScriptEngine.execute(this, actions);
-                return;
-            }
-        }
-
-        // ML
         if (aiIntentEngine != null) {
-            int intent = aiIntentEngine.getIntent(command);
-            if (intent != -1) {
-                new CommandOrchestrator(this).handleIntent(intent);
-                return;
-            }
+            predictedIntent = aiIntentEngine.getIntent(this, userCommand);
         }
 
-        // FALLBACK RULE ENGINE
-        IntentParser.ParsedIntent parsed = IntentParser.parse(command);
-        executeIntent(parsed, command);
+        // =====================================================
+        // 🔥 FINAL ROUTING
+        // =====================================================
+        commandOrchestrator.handleIntent(predictedIntent, userCommand);
+    }
+
+    @Override
+    public void onWakeWordDetected() {
+        runOnUiThread(() -> {
+            updateVoiceFeedback("Assistant", "👋 Hey Guru detected");
+            speak("Yes?");
+            speechController.startListening();
+
+        });
     }
 
 }

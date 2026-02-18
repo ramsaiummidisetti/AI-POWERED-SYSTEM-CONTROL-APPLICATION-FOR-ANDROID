@@ -22,6 +22,17 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.NFC" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+        <queries>
+
+        <package android:name="com.whatsapp" />
+        <package android:name="com.google.android.gm" />
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="com.android.chrome" />
+
+    </queries>
     <application
 
         android:allowBackup="true"
@@ -61,18 +72,18 @@
         android:label="Helper Screen" />
 
         <service
-            android:name=".accessibility.UniversalControlService"
+            android:name="com.example.accessibility.UniversalControlService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="false">
+            android:exported="true">
 
             <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
             </intent-filter>
 
             <meta-data
                 android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_config" />
+                android:resource="@xml/accessibility_service_config"/>
         </service>
-
+     
         </application>
 </manifest>

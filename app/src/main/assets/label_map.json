@@ -1,0 +1,7 @@
+["battery_status",
+ "exit_app", "get_current_date", 
+ "get_current_time", "open_bluetooth_settings", "open_camera", 
+ "open_chrome", "open_dashboard", "open_dialer", "open_flashlight",
+  "open_gmail", "open_help", "open_instagram", "open_maps", "open_settings",
+ "open_telegram", "open_whatsapp", "open_wifi_settings",
+  "open_youtube", "restart_app"]

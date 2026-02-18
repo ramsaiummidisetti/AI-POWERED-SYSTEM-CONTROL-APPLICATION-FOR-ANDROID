@@ -1,43 +1,95 @@
 package com.example.ai;
 
-import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 
+import com.example.accessibility.UniversalControlService;
 import com.example.utils.CommandOrchestrator;
 
 import java.util.List;
 
 public class ScriptEngine {
 
-    public static void execute(Context context, List<String> actions) {
+    private static final int MAX_ATTEMPTS = 10;
 
-        // ⭐ Always use Context-safe orchestrator
-        CommandOrchestrator orchestrator =
-                new CommandOrchestrator(context);
+    public static void execute(CommandOrchestrator orchestrator,
+                               List<String> actions) {
 
-        for (String action : actions) {
+        UniversalControlService service =
+                UniversalControlService.getInstance();
 
-            switch (action) {
-                case "youtube":
-                    orchestrator.handleIntent(0);
-                    break;
+        if (service == null) return;
 
-                case "chrome":
-                    orchestrator.handleIntent(3);
-                    break;
+        Handler handler = new Handler(Looper.getMainLooper());
 
-                case "wifi":
-                    orchestrator.handleIntent(1);
-                    break;
+        executeStep(orchestrator, service, actions, 0, handler);
+    }
 
-                case "settings":
-                    orchestrator.handleIntent(6);
-                    break;
+    private static void executeStep(CommandOrchestrator orchestrator,
+                                    UniversalControlService service,
+                                    List<String> actions,
+                                    int index,
+                                    Handler handler) {
+
+        if (index >= actions.size()) return;
+
+        String action = actions.get(index);
+
+        switch (action) {
+
+            case "youtube":
+
+                orchestrator.handleIntent(
+                        "open_youtube",
+                        "open youtube"
+                );
+
+                waitForPackage(service,
+                        "com.google.android.youtube",
+                        () -> executeStep(orchestrator, service, actions, index + 1, handler),
+                        handler,
+                        0);
+
+                break;
+
+            case "scroll":
+
+                waitForPackage(service,
+                        "com.google.android.youtube",
+                        () -> {
+                            service.performAction("scroll down");
+                            handler.postDelayed(() ->
+                                    executeStep(orchestrator, service, actions, index + 1, handler),
+                                    800);
+                        },
+                        handler,
+                        0);
+
+                break;
+
+            default:
+                executeStep(orchestrator, service, actions, index + 1, handler);
+        }
+    }
+
+    private static void waitForPackage(UniversalControlService service,
+                                       String packageName,
+                                       Runnable nextStep,
+                                       Handler handler,
+                                       int attempt) {
+
+        if (attempt >= MAX_ATTEMPTS) {
+            return; // stop safely
+        }
+
+        handler.postDelayed(() -> {
+
+            if (packageName.equals(service.getCurrentPackage())) {
+                nextStep.run();
+            } else {
+                waitForPackage(service, packageName, nextStep, handler, attempt + 1);
             }
 
-            // ⭐ Android 13+ SAFETY DELAY (VERY IMPORTANT)
-            try {
-                Thread.sleep(600);
-            } catch (InterruptedException ignored) {}
-        }
+        }, 400);
     }
 }
