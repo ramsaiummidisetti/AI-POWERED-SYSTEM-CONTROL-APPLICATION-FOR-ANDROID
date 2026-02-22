@@ -1,5 +1,9 @@
 package com.example;
 
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
+
 import android.net.Uri;
 import android.provider.Settings;
 import android.os.Build;
@@ -31,6 +35,7 @@ import android.net.NetworkCapabilities;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
@@ -99,6 +104,7 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
     private static final String TAG = "MainActivity";
     private boolean isDark = false;
+
     private AlertManager alertManager;
 
     private AIIntentEngine aiIntentEngine;
@@ -124,6 +130,9 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
     private TextView tvListening;
     private CommandOrchestrator commandOrchestrator;
+
+    private boolean awaitingConfirmation = false;
+    private String lastSuggestedPackage = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -186,199 +195,256 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
         setContentView(R.layout.activity_main);
-      
+
         // 🔥 Overlay permission check
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        textToSpeech = new TextToSpeech(this, status -> {
+            textToSpeech = new TextToSpeech(this, status -> {
 
-            if (status == TextToSpeech.SUCCESS) {
+                if (status == TextToSpeech.SUCCESS) {
 
-                int result = textToSpeech.setLanguage(Locale.US);
+                    int result = textToSpeech.setLanguage(Locale.US);
 
-                textToSpeech.setSpeechRate(1.0f);
-                textToSpeech.setPitch(1.0f);
+                    textToSpeech.setSpeechRate(1.0f);
+                    textToSpeech.setPitch(1.0f);
 
-                if (result == TextToSpeech.LANG_MISSING_DATA ||
-                        result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    if (result == TextToSpeech.LANG_MISSING_DATA ||
+                            result == TextToSpeech.LANG_NOT_SUPPORTED) {
 
-                    Log.e("TTS", "Language not supported");
-                    ttsReady = false;
+                        Log.e("TTS", "Language not supported");
+                        ttsReady = false;
+
+                    } else {
+                        ttsReady = true;
+                        Log.e("TTS", "TTS Initialized Successfully");
+                    }
 
                 } else {
-                    ttsReady = true;
-                    Log.e("TTS", "TTS Initialized Successfully");
+                    Log.e("TTS", "TTS Initialization Failed");
+                    ttsReady = false;
+                }
+            });
+
+            tvListening = findViewById(R.id.tvListening);
+
+            wakeWordEngine = new WakeWordEngine(this);
+            wakeWordEngine.start();
+
+            try {
+                aiIntentEngine = AIIntentEngine.getInstance(this);
+                Log.i(TAG, "AIIntentEngine initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize AIIntentEngine", e);
+            }
+
+            // ✅ Initialize context manager first
+            contextManager = new ContextManager(this);
+
+            // ✅ Initialize gestureDetector before using it
+            gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
+                @Override
+                public void onSwipeLeft() {
+                    vibrateShort();
+                    speak("You swiped left. Showing previous status.");
                 }
 
-            } else {
-                Log.e("TTS", "TTS Initialization Failed");
-                ttsReady = false;
+                @Override
+                public void onSwipeRight() {
+                    vibrateShort();
+                    speak("You swiped right. Refreshing dashboard.");
+                }
+
+                @Override
+                public void onDoubleTap() {
+                    vibrateShort();
+                    String context = contextManager.detectContext();
+                    speak("Detected context: " + context);
+                }
+            }));
+
+            VoiceHelper.init(this);
+            VoiceHelper.speak(this, "Welcome to Command Titan");
+
+            voiceFeedbackContainer = findViewById(R.id.voiceFeedbackContainer);
+            voiceScrollView = findViewById(R.id.voiceScrollView);
+
+            contextManager = new ContextManager(this);
+
+            // 🎤 Voice button
+            Button voiceButton = findViewById(R.id.btn_voice);
+
+            voiceButton.setOnClickListener(v -> {
+
+                speechController.startListening();
+            });
+
+            FloatingActionButton openDashboardButton = findViewById(R.id.btn_open_dashboard);
+            openDashboardButton.setOnClickListener(v -> {
+                v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
+                Intent intent = new Intent(MainActivity.this, DashboardScreenActivity.class);
+                startActivity(intent);
+            });
+            // 🆕 Help Button
+            FloatingActionButton openHelpButton = findViewById(R.id.btn_open_help);
+            openHelpButton.setOnClickListener(v -> {
+                v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
+                Intent intent = new Intent(MainActivity.this, HelperActivity.class);
+                startActivity(intent);
+            });
+
+            // Initialize Bluetooth
+            bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+            // init AlertManager
+            alertManager = new AlertManager(this);
+
+            // ✅ Request all needed permissions on app start
+            requestAllPermissions();
+
+            // ✅ Notification channel
+            NotificationHelper.createChannel(this);
+
+            // ✅ LogManager demo event
+            LogManager logManager = new LogManager(this);
+            try {
+                JSONObject metaFile = new JSONObject();
+                metaFile.put("fileName", "example.txt");
+                metaFile.put("fileSize", 1024);
+                logManager.logEvent(new LogEvent("file_deleted", "info", "app", metaFile));
+            } catch (Exception e) {
+                Log.e(TAG, "Log meta creation failed", e);
             }
-        });
 
-        tvListening = findViewById(R.id.tvListening);
+            // Views
+            EditText nameEditText = findViewById(R.id.et_name);
+            Button submitCommandButton = findViewById(R.id.btn_submit);
 
-        wakeWordEngine = new WakeWordEngine(this);
-        wakeWordEngine.start();
+            // ✅ Submit button → open SecondActivity + send notification
+            submitCommandButton.setOnClickListener(v -> {
+                String userName = nameEditText.getText().toString();
+                if (!userName.isEmpty()) {
+                    // Move to SecondActivity
+                    Intent secondActivityIntent = new Intent(MainActivity.this, SecondActivity.class);
+                    secondActivityIntent.putExtra("USER_NAME", userName);
+                    startActivity(secondActivityIntent);
 
-        try {
-            aiIntentEngine = AIIntentEngine.getInstance(this);
-            Log.i(TAG, "AIIntentEngine initialized successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize AIIntentEngine", e);
-        }
+                    // Show Notification
+                    Intent mainIntent = new Intent(this, MainActivity.class);
+                    PendingIntent pendingIntent = PendingIntent.getActivity(
+                            this, 0, mainIntent, PendingIntent.FLAG_IMMUTABLE);
 
-        // ✅ Initialize context manager first
-        contextManager = new ContextManager(this);
+                    NotificationHelper.sendActionNotification(
+                            this, 1001,
+                            "",
+                            "" + userName + "",
+                            mainIntent,
+                            mainIntent);
+                } else {
+                    Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
+                }
 
-        // ✅ Initialize gestureDetector before using it
-        gestureDetector = new GestureDetector(this, new GestureHandler(new GestureHandler.GestureListener() {
-            @Override
-            public void onSwipeLeft() {
-                vibrateShort();
-                speak("You swiped left. Showing previous status.");
+            });
+
+            // ✅ Schedule background work
+            WorkManager.getInstance(this).enqueue(new OneTimeWorkRequest.Builder(LogSyncWorker.class).build());
+
+            // ✅ Schedule reminder
+            // ⭐ SAFE reminder scheduling (works on Android 6 → 15)
+            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+            Intent alarmIntent = new Intent(this, ReminderReceiver.class);
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    0,
+                    alarmIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            if (alarmManager != null) {
+                // ⭐ NO exact alarm → no crash on Android 12+
+                alarmManager.set(
+                        AlarmManager.RTC_WAKEUP,
+                        System.currentTimeMillis() + 60000,
+                        pendingIntent);
             }
 
-            @Override
-            public void onSwipeRight() {
-                vibrateShort();
-                speak("You swiped right. Refreshing dashboard.");
-            }
-
-            @Override
-            public void onDoubleTap() {
-                vibrateShort();
-                String context = contextManager.detectContext();
-                speak("Detected context: " + context);
-            }
-        }));
-
-        VoiceHelper.init(this);
-        VoiceHelper.speak(this, "Welcome to Command Titan");
-
-        voiceFeedbackContainer = findViewById(R.id.voiceFeedbackContainer);
-        voiceScrollView = findViewById(R.id.voiceScrollView);
-
-        contextManager = new ContextManager(this);
-
-        // 🎤 Voice button
-        Button voiceButton = findViewById(R.id.btn_voice);
-
-        voiceButton.setOnClickListener(v -> {
-
-
-         speechController.startListening();
-        });
-
-        FloatingActionButton openDashboardButton = findViewById(R.id.btn_open_dashboard);
-        openDashboardButton.setOnClickListener(v -> {
-            v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
-            Intent intent = new Intent(MainActivity.this, DashboardScreenActivity.class);
-            startActivity(intent);
-        });
-        // 🆕 Help Button
-        FloatingActionButton openHelpButton = findViewById(R.id.btn_open_help);
-        openHelpButton.setOnClickListener(v -> {
-            v.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fab_pop));
-            Intent intent = new Intent(MainActivity.this, HelperActivity.class);
-            startActivity(intent);
-        });
-
-        // Initialize Bluetooth
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        // init AlertManager
-        alertManager = new AlertManager(this);
-
-        // ✅ Request all needed permissions on app start
-        requestAllPermissions();
-
-        // ✅ Notification channel
-        NotificationHelper.createChannel(this);
-
-        // ✅ LogManager demo event
-        LogManager logManager = new LogManager(this);
-        try {
-            JSONObject metaFile = new JSONObject();
-            metaFile.put("fileName", "example.txt");
-            metaFile.put("fileSize", 1024);
-            logManager.logEvent(new LogEvent("file_deleted", "info", "app", metaFile));
-        } catch (Exception e) {
-            Log.e(TAG, "Log meta creation failed", e);
-        }
-
-        // Views
-        EditText nameEditText = findViewById(R.id.et_name);
-        Button submitCommandButton = findViewById(R.id.btn_submit);
-
-        // ✅ Submit button → open SecondActivity + send notification
-        submitCommandButton.setOnClickListener(v -> {
-            String userName = nameEditText.getText().toString();
-            if (!userName.isEmpty()) {
-                // Move to SecondActivity
-                Intent secondActivityIntent = new Intent(MainActivity.this, SecondActivity.class);
-                secondActivityIntent.putExtra("USER_NAME", userName);
-                startActivity(secondActivityIntent);
-
-                // Show Notification
-                Intent mainIntent = new Intent(this, MainActivity.class);
-                PendingIntent pendingIntent = PendingIntent.getActivity(
-                        this, 0, mainIntent, PendingIntent.FLAG_IMMUTABLE);
-
-                NotificationHelper.sendActionNotification(
-                        this, 1001,
-                        "",
-                        "" + userName + "",
-                        mainIntent,
-                        mainIntent);
-            } else {
-                Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
-            }
-           
-        });
-
-        // ✅ Schedule background work
-        WorkManager.getInstance(this).enqueue(new OneTimeWorkRequest.Builder(LogSyncWorker.class).build());
-
-        // ✅ Schedule reminder
-        // ⭐ SAFE reminder scheduling (works on Android 6 → 15)
-        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        Intent alarmIntent = new Intent(this, ReminderReceiver.class);
-
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                this,
-                0,
-                alarmIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        if (alarmManager != null) {
-            // ⭐ NO exact alarm → no crash on Android 12+
-            alarmManager.set(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 60000,
-                    pendingIntent);
-        }
-
-        // ✅ Smart suggestions
-        SmartSuggestions.checkStorageAndSuggest(this);
-        SmartSuggestions.checkBatteryAndSuggest(this);
-        runUsageAnalysisSafely();
+            // ✅ Smart suggestions
+            SmartSuggestions.checkStorageAndSuggest(this);
+            SmartSuggestions.checkBatteryAndSuggest(this);
+            runUsageAnalysisSafely();
         }
     }
 
     private void runUsageAnalysisSafely() {
+
+        Log.e("AUTONOMY", "runUsageAnalysisSafely() called");
+
         if (!hasUsageStatsPermission()) {
-            Log.w(TAG, "Usage stats permission not granted");
+            Log.e("AUTONOMY", "Usage permission NOT granted");
             return;
         }
 
-        new Handler().postDelayed(() -> {
-            List<String> apps = UsagePatternAnalyzer.getRecentlyUsedApps(this);
+        Log.e("AUTONOMY", "Usage permission granted");
 
-            String frequentApp = PatternDetector.detectRepeatedApp(apps);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
 
-            AutomationSuggester.suggest(this, frequentApp);
-        }, 3000); // ⭐ delay prevents Android 15 kill and
+            try {
 
+                List<String> apps = UsagePatternAnalyzer
+                        .getLastHourForegroundApps(this);
+
+                if (apps == null) {
+                    Log.e("AUTONOMY", "App list is NULL");
+                    return;
+                }
+
+                Log.e("AUTONOMY", "Sequence size: " + apps.size());
+
+                if (apps.isEmpty()) {
+                    Log.e("AUTONOMY", "No foreground apps detected");
+                    return;
+                }
+
+                for (String app : apps) {
+                    Log.e("USAGE_DEBUG", "App: " + app);
+                }
+
+                String mostUsed = PatternDetector.detectMostFrequentApp(apps);
+
+                if (mostUsed != null) {
+
+                    Log.e("AUTONOMY", "Most used app detected: " + mostUsed);
+
+                    // 🔥 Generate suggestion
+                    String suggestion = AutomationSuggester.generateSuggestion(this, mostUsed);
+
+                    if (suggestion != null) {
+
+                        awaitingConfirmation = true;
+                        lastSuggestedPackage = mostUsed;
+
+                        if (ttsReady) {
+                            speak(suggestion);
+                        }
+
+                        updateVoiceFeedback("Assistant", suggestion);
+
+                        NotificationHelper.sendSimpleNotification(
+                                this,
+                                2001,
+                                "Smart Suggestion",
+                                suggestion);
+                    }
+                } else {
+                    Log.e("AUTONOMY",
+                            "PatternDetector returned NULL");
+                }
+
+            } catch (Exception e) {
+                Log.e("AUTONOMY",
+                        "Usage analysis crashed",
+                        e);
+            }
+
+        }, 4000); // 4 sec delay safer on Android 15
     }
 
     public boolean tryEnableBluetoothDirectly() {
@@ -483,198 +549,204 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
-    // private void executeIntent(IntentParser.ParsedIntent intent, String command) {
+    // private void executeIntent(IntentParser.ParsedIntent intent, String command)
+    // {
 
-    //     switch (intent.target) {
-    //         case "bluetooth":
-    //             speak("Opening Bluetooth settings.");
-    //             startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
-    //             return;
+    // switch (intent.target) {
+    // case "bluetooth":
+    // speak("Opening Bluetooth settings.");
+    // startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+    // return;
 
-    //         case "usage":
-    //             String usage = UsageStatsHelper.getUsageSummary(this);
-    //             speak("Here is your app usage summary.");
-    //             Toast.makeText(this, usage, Toast.LENGTH_LONG).show();
-    //             return;
+    // case "usage":
+    // String usage = UsageStatsHelper.getUsageSummary(this);
+    // speak("Here is your app usage summary.");
+    // Toast.makeText(this, usage, Toast.LENGTH_LONG).show();
+    // return;
 
-    //         case "darkmode":
-    //             isDark = true;
-    //             saveThemePreference(true);
-    //             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-    //             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-    //             speak("Dark mode activated");
-    //             return;
+    // case "darkmode":
+    // isDark = true;
+    // saveThemePreference(true);
+    // AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+    // overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    // speak("Dark mode activated");
+    // return;
 
-    //         case "lightmode":
-    //             isDark = false;
-    //             saveThemePreference(false);
-    //             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-    //             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-    //             speak("Light mode activated");
-    //             return;
+    // case "lightmode":
+    // isDark = false;
+    // saveThemePreference(false);
+    // AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+    // overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    // speak("Light mode activated");
+    // return;
 
-    //         case "time":
-    //             String time = java.text.DateFormat.getTimeInstance().format(new java.util.Date());
-    //             speak("The current time is " + time);
-    //             return;
+    // case "time":
+    // String time = java.text.DateFormat.getTimeInstance().format(new
+    // java.util.Date());
+    // speak("The current time is " + time);
+    // return;
 
-    //         case "exit":
-    //             speak("Closing the application. Goodbye!");
-    //             finishAffinity();
-    //             return;
+    // case "exit":
+    // speak("Closing the application. Goodbye!");
+    // finishAffinity();
+    // return;
 
-    //     }
+    // }
 
-    //     // 🟡 ✅ NEW: Fallback keyword detection (put this BEFORE default)
-    //     if (command.contains("battery")) {
-    //         speak("Battery level is " + getBatteryInfo());
-    //         return;
-    //     }
+    // // 🟡 ✅ NEW: Fallback keyword detection (put this BEFORE default)
+    // if (command.contains("battery")) {
+    // speak("Battery level is " + getBatteryInfo());
+    // return;
+    // }
 
-    //     if (command.contains("wifi") || command.contains("wi-fi") ||
-    //             command.contains("internet") || command.contains("network")) {
+    // if (command.contains("wifi") || command.contains("wi-fi") ||
+    // command.contains("internet") || command.contains("network")) {
 
-    //         String netStatus = getNetworkStatusFallback().toLowerCase(Locale.ROOT);
+    // String netStatus = getNetworkStatusFallback().toLowerCase(Locale.ROOT);
 
-    //         String reply;
-    //         if (netStatus.contains("no") || netStatus.contains("unknown")) {
-    //             reply = "You are currently offline. Please check your Wi-Fi or mobile data.";
-    //         } else if (netStatus.contains("wi-fi")) {
-    //             reply = "Wi-Fi is connected and working fine.";
-    //         } else if (netStatus.contains("mobile")) {
-    //             reply = "Mobile data connection is active.";
-    //         } else if (netStatus.contains("other")) {
-    //             reply = "You are connected to another type of network.";
-    //         } else {
-    //             reply = "Network status: " + netStatus;
-    //         }
+    // String reply;
+    // if (netStatus.contains("no") || netStatus.contains("unknown")) {
+    // reply = "You are currently offline. Please check your Wi-Fi or mobile data.";
+    // } else if (netStatus.contains("wi-fi")) {
+    // reply = "Wi-Fi is connected and working fine.";
+    // } else if (netStatus.contains("mobile")) {
+    // reply = "Mobile data connection is active.";
+    // } else if (netStatus.contains("other")) {
+    // reply = "You are connected to another type of network.";
+    // } else {
+    // reply = "Network status: " + netStatus;
+    // }
 
-    //         speak(reply);
-    //         updateVoiceFeedback("Assistant", reply);
-    //         return;
-    //     }
+    // speak(reply);
+    // updateVoiceFeedback("Assistant", reply);
+    // return;
+    // }
 
-    //     if (command.contains("bluetooth")) {
+    // if (command.contains("bluetooth")) {
 
-    //         if (command.contains("turn on") || command.contains("enable")) {
-    //             if (!isBluetoothOn()) {
-    //                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-    //                     boolean success = tryEnableBluetoothDirectly();
-    //                     if (success)
-    //                         speak("Bluetooth has been turned on successfully.");
-    //                     else
-    //                         speak("Unable to turn on Bluetooth directly. Please enable it manually.");
-    //                 } else {
-    //                     // 🔹 Android 12 + — open system panel
-    //                     Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-    //                     startActivity(enableBtIntent);
-    //                     speak("Opening Bluetooth settings. Please confirm to turn it on.");
-    //                 }
-    //             } else {
-    //                 speak("Bluetooth is already on.");
-    //             }
-    //             return;
-    //         }
+    // if (command.contains("turn on") || command.contains("enable")) {
+    // if (!isBluetoothOn()) {
+    // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+    // boolean success = tryEnableBluetoothDirectly();
+    // if (success)
+    // speak("Bluetooth has been turned on successfully.");
+    // else
+    // speak("Unable to turn on Bluetooth directly. Please enable it manually.");
+    // } else {
+    // // 🔹 Android 12 + — open system panel
+    // Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+    // startActivity(enableBtIntent);
+    // speak("Opening Bluetooth settings. Please confirm to turn it on.");
+    // }
+    // } else {
+    // speak("Bluetooth is already on.");
+    // }
+    // return;
+    // }
 
-    //         if (command.contains("turn off") || command.contains("disable")) {
-    //             if (isBluetoothOn()) {
-    //                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-    //                     boolean success = tryDisableBluetoothDirectly();
-    //                     if (success)
-    //                         speak("Bluetooth has been turned off successfully.");
-    //                     else
-    //                         speak("Unable to turn off Bluetooth directly. Please disable it manually.");
-    //                 } else {
-    //                     // 🔹 Android 12 + — open settings page
-    //                     Intent panelIntent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
-    //                     startActivity(panelIntent);
-    //                     speak("Opening Bluetooth settings. Please turn it off manually.");
-    //                 }
-    //             } else {
-    //                 speak("Bluetooth is already off.");
-    //             }
-    //             return;
-    //         }
+    // if (command.contains("turn off") || command.contains("disable")) {
+    // if (isBluetoothOn()) {
+    // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+    // boolean success = tryDisableBluetoothDirectly();
+    // if (success)
+    // speak("Bluetooth has been turned off successfully.");
+    // else
+    // speak("Unable to turn off Bluetooth directly. Please disable it manually.");
+    // } else {
+    // // 🔹 Android 12 + — open settings page
+    // Intent panelIntent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+    // startActivity(panelIntent);
+    // speak("Opening Bluetooth settings. Please turn it off manually.");
+    // }
+    // } else {
+    // speak("Bluetooth is already off.");
+    // }
+    // return;
+    // }
 
-    //         // ✅ Just status query
-    //         if (isBluetoothOn())
-    //             speak("Bluetooth is currently on.");
-    //         else
-    //             speak("Bluetooth is currently off.");
-    //         return;
-    //     }
+    // // ✅ Just status query
+    // if (isBluetoothOn())
+    // speak("Bluetooth is currently on.");
+    // else
+    // speak("Bluetooth is currently off.");
+    // return;
+    // }
 
-    //     if (command.matches(".*(dashboard|control|center|home|system control center).*")) {
-    //         speak("Opening system control center.");
-    //         Intent dashIntent = new Intent(this, DashboardScreenActivity.class);
-    //         startActivity(dashIntent);
-    //         return;
-    //     }
-    //     // 🔵 Additional Phase 1 Commands (Non-destructive)
-    //     if (command.contains("date")) {
-    //         String date = java.text.DateFormat.getDateInstance().format(new java.util.Date());
-    //         speak("Today's date is " + date);
-    //         return;
-    //     }
+    // if (command.matches(".*(dashboard|control|center|home|system control
+    // center).*")) {
+    // speak("Opening system control center.");
+    // Intent dashIntent = new Intent(this, DashboardScreenActivity.class);
+    // startActivity(dashIntent);
+    // return;
+    // }
+    // // 🔵 Additional Phase 1 Commands (Non-destructive)
+    // if (command.contains("date")) {
+    // String date = java.text.DateFormat.getDateInstance().format(new
+    // java.util.Date());
+    // speak("Today's date is " + date);
+    // return;
+    // }
 
-    //     if (command.contains("settings")) {
-    //         speak("Opening settings.");
-    //         startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
-    //         return;
-    //     }
+    // if (command.contains("settings")) {
+    // speak("Opening settings.");
+    // startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+    // return;
+    // }
 
-    //     if (command.contains("flashlight") || command.contains("torch")) {
-    //         android.hardware.camera2.CameraManager camManager = (android.hardware.camera2.CameraManager) getSystemService(
-    //                 Context.CAMERA_SERVICE);
-    //         try {
-    //             String camId = camManager.getCameraIdList()[0];
-    //             if (command.contains("on")) {
-    //                 camManager.setTorchMode(camId, true);
-    //                 speak("Flashlight turned on.");
-    //             } else if (command.contains("off")) {
-    //                 camManager.setTorchMode(camId, false);
-    //                 speak("Flashlight turned off.");
-    //             } else {
-    //                 speak("Say turn on or turn off flashlight.");
-    //             }
-    //         } catch (Exception e) {
-    //             speak("Flashlight not supported on this device.");
-    //         }
-    //         return;
-    //     }
+    // if (command.contains("flashlight") || command.contains("torch")) {
+    // android.hardware.camera2.CameraManager camManager =
+    // (android.hardware.camera2.CameraManager) getSystemService(
+    // Context.CAMERA_SERVICE);
+    // try {
+    // String camId = camManager.getCameraIdList()[0];
+    // if (command.contains("on")) {
+    // camManager.setTorchMode(camId, true);
+    // speak("Flashlight turned on.");
+    // } else if (command.contains("off")) {
+    // camManager.setTorchMode(camId, false);
+    // speak("Flashlight turned off.");
+    // } else {
+    // speak("Say turn on or turn off flashlight.");
+    // }
+    // } catch (Exception e) {
+    // speak("Flashlight not supported on this device.");
+    // }
+    // return;
+    // }
 
-    //     if (command.contains("restart app")) {
-    //         speak("Restarting the app.");
-    //         Intent Rintent = getIntent();
-    //         finish();
-    //         startActivity(Rintent);
-    //         return;
-    //     }
+    // if (command.contains("restart app")) {
+    // speak("Restarting the app.");
+    // Intent Rintent = getIntent();
+    // finish();
+    // startActivity(Rintent);
+    // return;
+    // }
 
-    //     if (command.contains("help") || command.contains("open help") || command.contains("help me")
-    //             || command.contains("how to use")) {
-    //         speak("Opening help and user guide Screen.");
-    //         Intent helpIntent = new Intent(this, HelperActivity.class);
-    //         startActivity(helpIntent);
-    //         return;
-    //     }
-    //     if (command.contains("click")
-    //             || command.contains("scroll")
-    //             || command.contains("back")
-    //             || command.contains("notification")) {
+    // if (command.contains("help") || command.contains("open help") ||
+    // command.contains("help me")
+    // || command.contains("how to use")) {
+    // speak("Opening help and user guide Screen.");
+    // Intent helpIntent = new Intent(this, HelperActivity.class);
+    // startActivity(helpIntent);
+    // return;
+    // }
+    // if (command.contains("click")
+    // || command.contains("scroll")
+    // || command.contains("back")
+    // || command.contains("notification")) {
 
-    //         UniversalControlService service = UniversalControlService.getInstance();
+    // UniversalControlService service = UniversalControlService.getInstance();
 
-    //         if (service != null) {
-    //             service.performAction(command);
-    //             speak("Action executed");
-    //             return;
-    //         }
-    //     }
+    // if (service != null) {
+    // service.performAction(command);
+    // speak("Action executed");
+    // return;
+    // }
+    // }
 
-    //     // 🟥 Default case — if no command matched
-    //     speak("Sorry, I didn't understand that command.");
-    //     Toast.makeText(this, "Command not recognized", Toast.LENGTH_SHORT).show();
+    // // 🟥 Default case — if no command matched
+    // speak("Sorry, I didn't understand that command.");
+    // Toast.makeText(this, "Command not recognized", Toast.LENGTH_SHORT).show();
     // }
 
     public boolean isBluetoothOn() {
@@ -846,21 +918,83 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
 
         // =====================================================
+        // 🔥 PRIORITY -1 — Suggestion Confirmation Layer
+        // =====================================================
+
+        if (awaitingConfirmation) {
+
+            if (userCommand.equals("yes") ||
+                    userCommand.equals("okay") ||
+                    userCommand.contains("create") ||
+                    userCommand.contains("do it")) {
+
+                awaitingConfirmation = false;
+
+                if (lastSuggestedPackage != null) {
+                    createPinnedShortcut(lastSuggestedPackage);
+                } else {
+                    speak("No app selected for shortcut");
+                }
+
+                // Later: real shortcut creation logic
+                return;
+            }
+
+            if (userCommand.equals("no") ||
+                    userCommand.contains("cancel")) {
+
+                awaitingConfirmation = false;
+                speak("Okay, cancelled");
+                return;
+            }
+        }
+
+        // =====================================================
+        // 🔥 PRIORITY 0 — CRITICAL RULE-BASED FALLBACK
+        // =====================================================
+
+        // Emergency must NEVER depend on ML
+        if (userCommand.contains("emergency")) {
+            commandOrchestrator.handleIntent("emergency", userCommand);
+            return;
+        }
+
+        // Installed apps
+        if (userCommand.contains("list") && userCommand.contains("app")) {
+            commandOrchestrator.handleIntent("list_installed_apps", userCommand);
+            return;
+        }
+
+        // Battery quick rule
+        if (userCommand.contains("battery")) {
+            commandOrchestrator.handleIntent("battery_status", userCommand);
+            return;
+        }
+
+        // Time quick rule
+        if (userCommand.contains("time")) {
+            commandOrchestrator.handleIntent("get_current_time", userCommand);
+            return;
+        }
+
+        // =====================================================
         // 🔥 PRIORITY 1 — MULTI STEP SCRIPTING
         // =====================================================
+
         List<String> actions = TaskScriptParser.parseActions(userCommand);
-        if (actions.size() > 1) {
+
+        if (actions != null && actions.size() > 1) {
             ScriptEngine.execute(commandOrchestrator, actions);
             return;
         }
-        
 
         // =====================================================
-        // 🔥 PRIORITY 2 — DIRECT UI AUTOMATION (NO ML)
+        // 🔥 PRIORITY 2 — DIRECT UI AUTOMATION
         // =====================================================
-        if (userCommand.startsWith("click ") ||
-                userCommand.startsWith("tap ") ||
-                userCommand.startsWith("type ") ||
+
+        if (userCommand.startsWith("click") ||
+                userCommand.startsWith("tap") ||
+                userCommand.startsWith("type") ||
                 userCommand.contains("scroll") ||
                 userCommand.equals("back") ||
                 userCommand.equals("home") ||
@@ -878,17 +1012,21 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         }
 
         // =====================================================
-        // 🔥 PRIORITY 3 — ML INTENT CLASSIFICATION
+        // 🔥 PRIORITY 3 — ML INTENT ENGINE
         // =====================================================
-        String predictedIntent = null;
 
-        if (aiIntentEngine != null) {
-            predictedIntent = aiIntentEngine.getIntent(this, userCommand);
+        if (aiIntentEngine == null) {
+            speak("AI engine not ready");
+            return;
         }
 
-        // =====================================================
-        // 🔥 FINAL ROUTING
-        // =====================================================
+        String predictedIntent = aiIntentEngine.getIntent(this, userCommand);
+
+        if (predictedIntent == null) {
+            speak("Sorry, I did not understand");
+            return;
+        }
+
         commandOrchestrator.handleIntent(predictedIntent, userCommand);
     }
 
@@ -900,6 +1038,60 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             speechController.startListening();
 
         });
+    }
+
+    private void createPinnedShortcut(String packageName) {
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            speak("Shortcut not supported on this Android version");
+            return;
+        }
+
+        ShortcutManager shortcutManager = getSystemService(ShortcutManager.class);
+
+        if (shortcutManager == null ||
+                !shortcutManager.isRequestPinShortcutSupported()) {
+
+            speak("Pinned shortcuts not supported on this device");
+            return;
+        }
+
+        try {
+
+            String appName = getPackageManager()
+                    .getApplicationLabel(
+                            getPackageManager()
+                                    .getApplicationInfo(packageName, 0))
+                    .toString();
+
+            Intent launchIntent = getPackageManager()
+                    .getLaunchIntentForPackage(packageName);
+
+            if (launchIntent == null) {
+                speak("App cannot be launched");
+                return;
+            }
+
+            launchIntent.setAction(Intent.ACTION_VIEW);
+
+            ShortcutInfo shortcut = new ShortcutInfo.Builder(this,
+                    "shortcut_" + packageName)
+                    .setShortLabel(appName)
+                    .setLongLabel("Open " + appName)
+                    .setIcon(Icon.createWithResource(
+                            this,
+                            android.R.drawable.sym_def_app_icon))
+                    .setIntent(launchIntent)
+                    .build();
+
+            shortcutManager.requestPinShortcut(shortcut, null);
+
+            speak("Shortcut created on home screen");
+
+        } catch (Exception e) {
+            speak("Failed to create shortcut");
+            Log.e("SHORTCUT", "Error creating shortcut", e);
+        }
     }
 
 }

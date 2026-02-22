@@ -1,19 +1,28 @@
 package com.example.ai;
 
 import android.content.Context;
-import android.widget.Toast;
-
-import com.example.utils.VoiceHelper;
+import android.content.pm.PackageManager;
 
 public class AutomationSuggester {
 
-    public static void suggest(Context context, String appPackage) {
+    public static String generateSuggestion(Context context, String packageName) {
 
-        if (appPackage == null)
-            return;
+        if (packageName == null)
+            return null;
 
-        String msg = "You frequently use this app. Do you want to automate actions for it?";
-        Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
-        VoiceHelper.speak(context, msg);
+        PackageManager pm = context.getPackageManager();
+
+        try {
+            String appName =
+                    pm.getApplicationLabel(
+                            pm.getApplicationInfo(packageName, 0)
+                    ).toString();
+
+            return "You frequently use " + appName +
+                   ". Would you like to create a quick shortcut?";
+
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

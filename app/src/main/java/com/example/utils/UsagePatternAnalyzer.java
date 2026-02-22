@@ -1,42 +1,54 @@
 package com.example.utils;
 
-import android.app.usage.UsageStats;
+import android.app.usage.UsageEvents;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.util.Log;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 public class UsagePatternAnalyzer {
 
-    private static final String TAG = "PATTERN";
+    private static final String TAG = "USAGE_ANALYZER";
 
-    public static List<String> getRecentlyUsedApps(Context context) {
+    public static List<String> getLastHourForegroundApps(Context context) {
 
-        UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
+        List<String> appSequence = new ArrayList<>();
 
-        List<String> result = new ArrayList<>();
-        if (usm == null)
-            return result;
+        UsageStatsManager usageStatsManager = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
 
-        Calendar cal = Calendar.getInstance();
-        long endTime = cal.getTimeInMillis();
-        cal.add(Calendar.HOUR, -1); // last 1 hour
-        long startTime = cal.getTimeInMillis();
+        if (usageStatsManager == null) {
+            Log.e(TAG, "UsageStatsManager is null");
+            return appSequence;
+        }
 
-        List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
+        long endTime = System.currentTimeMillis();
+        long startTime = endTime - (60 * 60 * 1000); // last 1 hour
 
-        if (stats == null)
-            return result;
+        UsageEvents usageEvents = usageStatsManager.queryEvents(startTime, endTime);
 
-        for (UsageStats usage : stats) {
-            if (usage.getTotalTimeInForeground() > 0) {
-                result.add(usage.getPackageName());
-                Log.e(TAG, "App used: " + usage.getPackageName());
+        UsageEvents.Event event = new UsageEvents.Event();
+
+        while (usageEvents.hasNextEvent()) {
+
+            usageEvents.getNextEvent(event);
+
+            if (event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+
+                String packageName = event.getPackageName();
+
+                if (packageName != null &&
+                        !packageName.contains("systemui") &&
+                        !packageName.contains("launcher") &&
+                        !packageName.contains("com.example")) {
+
+                    appSequence.add(packageName);
+                    Log.e(TAG, "Foreground: " + packageName);
+                }
             }
         }
-        return result;
+
+        return appSequence;
     }
 }

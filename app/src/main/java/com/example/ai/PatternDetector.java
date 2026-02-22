@@ -8,22 +8,35 @@ import java.util.Map;
 
 public class PatternDetector {
 
-    private static final String TAG = "PATTERN";
+    private static final String TAG = "PATTERN_DETECTOR";
 
-    public static String detectRepeatedApp(List<String> apps) {
+    public static String detectMostFrequentApp(List<String> apps) {
 
-        Map<String, Integer> freq = new HashMap<>();
+        if (apps == null || apps.isEmpty())
+            return null;
+
+        Map<String, Integer> frequencyMap = new HashMap<>();
 
         for (String app : apps) {
-            freq.put(app, freq.getOrDefault(app, 0) + 1);
+
+            frequencyMap.put(app,
+                    frequencyMap.getOrDefault(app, 0) + 1);
         }
 
-        for (String app : freq.keySet()) {
-            if (freq.get(app) >= 3) {
-                Log.e(TAG, "Pattern detected: " + app);
-                return app;
+        String mostUsedApp = null;
+        int maxCount = 0;
+
+        for (Map.Entry<String, Integer> entry : frequencyMap.entrySet()) {
+
+            if (entry.getValue() > maxCount) {
+                maxCount = entry.getValue();
+                mostUsedApp = entry.getKey();
             }
         }
-        return null;
+
+        Log.e(TAG, "Most used: " + mostUsedApp +
+                " Count: " + maxCount);
+
+        return mostUsedApp;
     }
 }
