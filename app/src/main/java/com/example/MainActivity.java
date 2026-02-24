@@ -1,4 +1,8 @@
 package com.example;
+import com.example.accessibility.UniversalControlService;
+import java.util.Map;
+import android.app.usage.UsageStats;
+import android.util.Pair;
 
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
@@ -28,6 +32,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.BroadcastReceiver;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
@@ -36,6 +41,7 @@ import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
+import android.util.Pair;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
@@ -84,7 +90,7 @@ import com.example.utils.CommandOrchestrator;
 import com.example.utils.VoiceHelper;
 import com.example.utils.VoiceFeedback;
 
-import com.example.accessibility.UniversalControlService;
+
 
 import org.json.JSONObject;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -96,12 +102,13 @@ import com.example.ai.PatternDetector;
 import com.example.ai.AutomationSuggester;
 import com.example.ai.TaskScriptParser;
 import com.example.ai.ScriptEngine;
+import com.example.ai.SmartSuggestionManager;
 import android.os.StrictMode;
 
 public class MainActivity extends AppCompatActivity implements WakeWordListener, VoiceFeedback {
 
+    private BroadcastReceiver predictionReceiver;
     private WakeWordEngine wakeWordEngine;
-
     private static final String TAG = "MainActivity";
     private boolean isDark = false;
 
@@ -195,7 +202,21 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
         setContentView(R.layout.activity_main);
+   
+        predictionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
 
+            String targetPackage =
+                    intent.getStringExtra("target_package");
+
+            if (targetPackage == null) return;
+
+            showPredictionPopup(targetPackage);
+        }
+    };
+    
+    
         // 🔥 Overlay permission check
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             textToSpeech = new TextToSpeech(this, status -> {
@@ -290,6 +311,16 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 Intent intent = new Intent(MainActivity.this, HelperActivity.class);
                 startActivity(intent);
             });
+            // Autoameanage Button
+            FloatingActionButton manageBtn =
+                    findViewById(R.id.btn_manage_automations);
+
+            manageBtn.setOnClickListener(v -> {
+                Intent intent = new Intent(
+                        MainActivity.this,
+                        AutomationManagerActivity.class);
+                startActivity(intent);
+            });
 
             // Initialize Bluetooth
             bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -372,81 +403,65 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             runUsageAnalysisSafely();
         }
     }
+      @Override
+        protected void onResume() {
+            super.onResume();
 
+            registerReceiver(predictionReceiver,
+                    new IntentFilter("PREDICTION_EVENT"));
+        }
+        @Override
+            protected void onPause() {
+                super.onPause();
+                if (predictionReceiver != null){
+                unregisterReceiver(predictionReceiver);
+                }
+        }
     private void runUsageAnalysisSafely() {
 
-        Log.e("AUTONOMY", "runUsageAnalysisSafely() called");
+    if (!hasUsageStatsPermission()) {
+        Log.e("USAGE_DEBUG", "Permission not granted");
+        return;
+    }
 
-        if (!hasUsageStatsPermission()) {
-            Log.e("AUTONOMY", "Usage permission NOT granted");
+    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+
+        // 1️⃣ Get real foreground usage (UsageEvents based)
+        java.util.Map<String, Long> usageMap =
+                UsagePatternAnalyzer.getLastHourUsageTime(this);
+
+        if (usageMap == null || usageMap.isEmpty()) {
+            Log.e("AUTONOMY", "No usage data");
             return;
         }
 
-        Log.e("AUTONOMY", "Usage permission granted");
+        // 2️⃣ Detect dominant app
+        android.util.Pair<String, Long> result =
+                PatternDetector.detectDominantApp(usageMap);
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        if (result == null) {
+            Log.e("AUTONOMY", "No dominant app detected");
+            return;
+        }
 
-            try {
+        String dominantApp = result.first;
+        long dominantTime = result.second;
 
-                List<String> apps = UsagePatternAnalyzer
-                        .getLastHourForegroundApps(this);
+        Log.e("AUTONOMY",
+            "DOMINANT_APP (UsageEvents): " +
+            dominantApp +
+            " Foreground(ms): " +
+            dominantTime);
 
-                if (apps == null) {
-                    Log.e("AUTONOMY", "App list is NULL");
-                    return;
-                }
+        // 3️⃣ Send to SmartSuggestionManager
+        SmartSuggestionManager.evaluateAndSuggest(
+                this,
+                dominantApp,
+                dominantTime);
 
-                Log.e("AUTONOMY", "Sequence size: " + apps.size());
+    }, 3000); // 3 sec delay
 
-                if (apps.isEmpty()) {
-                    Log.e("AUTONOMY", "No foreground apps detected");
-                    return;
-                }
-
-                for (String app : apps) {
-                    Log.e("USAGE_DEBUG", "App: " + app);
-                }
-
-                String mostUsed = PatternDetector.detectMostFrequentApp(apps);
-
-                if (mostUsed != null) {
-
-                    Log.e("AUTONOMY", "Most used app detected: " + mostUsed);
-
-                    // 🔥 Generate suggestion
-                    String suggestion = AutomationSuggester.generateSuggestion(this, mostUsed);
-
-                    if (suggestion != null) {
-
-                        awaitingConfirmation = true;
-                        lastSuggestedPackage = mostUsed;
-
-                        if (ttsReady) {
-                            speak(suggestion);
-                        }
-
-                        updateVoiceFeedback("Assistant", suggestion);
-
-                        NotificationHelper.sendSimpleNotification(
-                                this,
-                                2001,
-                                "Smart Suggestion",
-                                suggestion);
-                    }
-                } else {
-                    Log.e("AUTONOMY",
-                            "PatternDetector returned NULL");
-                }
-
-            } catch (Exception e) {
-                Log.e("AUTONOMY",
-                        "Usage analysis crashed",
-                        e);
-            }
-
-        }, 4000); // 4 sec delay safer on Android 15
-    }
-
+}
     public boolean tryEnableBluetoothDirectly() {
         if (bluetoothAdapter == null)
             return false;
@@ -1093,5 +1108,35 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             Log.e("SHORTCUT", "Error creating shortcut", e);
         }
     }
+    public CommandOrchestrator getCommandOrchestrator() {
+        return commandOrchestrator;
+    }
+    
+       private void showPredictionPopup(String targetPackage) {
 
+        PackageManager pm = getPackageManager();
+        String appName = targetPackage;
+
+        try {
+            appName = pm.getApplicationLabel(
+                    pm.getApplicationInfo(targetPackage, 0)
+            ).toString();
+        } catch (Exception ignored) {}
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Smart Routine Suggestion")
+                .setMessage("You usually open " + appName +
+                        " after this app.\nOpen now?")
+                .setPositiveButton("Open", (d, w) -> {
+
+                    Intent launchIntent =
+                            pm.getLaunchIntentForPackage(targetPackage);
+
+                    if (launchIntent != null) {
+                        startActivity(launchIntent);
+                    }
+                })
+                .setNegativeButton("Not now", null)
+                .show();
+    }
 }

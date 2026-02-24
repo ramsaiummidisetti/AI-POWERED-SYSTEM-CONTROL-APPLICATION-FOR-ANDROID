@@ -1,42 +1,55 @@
 package com.example.ai;
 
-import android.util.Log;
-
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import android.app.usage.UsageStats;
+import android.util.Pair;
+
+import java.util.List;
 
 public class PatternDetector {
 
-    private static final String TAG = "PATTERN_DETECTOR";
+        public static android.util.Pair<String, Long> detectDominantApp(
+            java.util.Map<String, Long> usageMap) {
 
-    public static String detectMostFrequentApp(List<String> apps) {
-
-        if (apps == null || apps.isEmpty())
+        if (usageMap == null || usageMap.isEmpty())
             return null;
 
-        Map<String, Integer> frequencyMap = new HashMap<>();
+        long totalTime = 0;
+        String topApp = null;
+        long maxTime = 0;
 
-        for (String app : apps) {
+        final long MIN_ABSOLUTE_TIME = 20000; // 20 sec minimum
 
-            frequencyMap.put(app,
-                    frequencyMap.getOrDefault(app, 0) + 1);
-        }
+        for (java.util.Map.Entry<String, Long> entry : usageMap.entrySet()) {
 
-        String mostUsedApp = null;
-        int maxCount = 0;
+            String pkg = entry.getKey();
+            long time = entry.getValue();
 
-        for (Map.Entry<String, Integer> entry : frequencyMap.entrySet()) {
+            totalTime += time;
 
-            if (entry.getValue() > maxCount) {
-                maxCount = entry.getValue();
-                mostUsedApp = entry.getKey();
+            if (time > maxTime) {
+                maxTime = time;
+                topApp = pkg;
             }
         }
 
-        Log.e(TAG, "Most used: " + mostUsedApp +
-                " Count: " + maxCount);
+        if (topApp == null || totalTime == 0)
+            return null;
 
-        return mostUsedApp;
+        if (maxTime < MIN_ABSOLUTE_TIME)
+            return null;
+
+        double dominanceRatio = (double) maxTime / totalTime;
+
+        android.util.Log.e("AUTONOMY",
+                "Top: " + topApp +
+                " Time: " + maxTime +
+                " Total: " + totalTime +
+                " Ratio: " + dominanceRatio);
+
+        if (dominanceRatio < 0.40)
+            return null;
+
+        return new android.util.Pair<>(topApp, maxTime);
     }
 }
