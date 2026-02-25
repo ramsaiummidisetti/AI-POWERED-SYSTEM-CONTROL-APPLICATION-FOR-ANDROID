@@ -17,7 +17,8 @@ import com.example.ai.SmartSuggestionManager;
 import com.example.ai.TransitionTracker;
 import com.example.ai.PatternEngine;
 import com.example.ai.PredictionDismissReceiver;
-
+import com.example.ai.PredictionOpenReceiver;
+import com.example.utils.NotificationHelper;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.os.Bundle;
@@ -37,12 +38,15 @@ public class UniversalControlService extends AccessibilityService {
 
     private String currentPackage = "";
     private boolean automationRunning = false;
+    private boolean predictionActive = false;
     private Handler automationHandler = new Handler(Looper.getMainLooper());
     private Runnable automationRunnable;
     private int automationScrollCount = 0;
     private static final int MAX_SCROLLS = 3;
     private long lastPredictionTime = 0;
     private static final long PREDICTION_COOLDOWN = 2 * 60 * 1000; // 2 MINUTES
+    private static final int PREDICTION_NOTIFICATION_ID = 1001;
+    private static final String CHANNEL_ID = "prediction_channel";
 
     public static UniversalControlService getInstance() {
         return instance;
@@ -52,6 +56,9 @@ public class UniversalControlService extends AccessibilityService {
         return currentPackage;
     }
 
+    public void resetPredictionFlag() {
+        predictionActive = false;
+    }
     // ==========================================================
     // SERVICE CONNECT
     // ==========================================================
@@ -104,6 +111,9 @@ public class UniversalControlService extends AccessibilityService {
                 newPackage.contains("minusscreen")) {
             return;
         }
+        if (isUtilityApp(newPackage)) {
+            return;
+        }
         // ==============================
         // 🔮 Pattern Prediction
         // ==============================
@@ -111,8 +121,16 @@ public class UniversalControlService extends AccessibilityService {
         if (newPackage.equals(currentPackage))
             return;
 
-        // 🔮 Predict based on OLD app BEFORE changing it
-        String predicted = PatternEngine.predictNextApp(this, currentPackage);
+        String oldPackage = currentPackage;
+
+        // 🚫 Ignore if old app is utility (don't learn/predict from utilities)
+        if (isUtilityApp(oldPackage)) {
+            currentPackage = newPackage;
+            return;
+        }
+
+        // 🔮 Predict based on OLD package
+        String predicted = PatternEngine.predictNextApp(this, oldPackage);
 
         long now = System.currentTimeMillis();
 
@@ -123,10 +141,10 @@ public class UniversalControlService extends AccessibilityService {
             sendPredictionNotification(predicted);
         }
 
-        // Record transition from old → new
+        // 📊 Record transition AFTER prediction
         TransitionTracker.recordTransition(this, newPackage);
 
-        // Now update current package
+        // 🔁 Update current
         currentPackage = newPackage;
 
         Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
@@ -477,19 +495,17 @@ public class UniversalControlService extends AccessibilityService {
         }
 
         // ---------------- OPEN ACTION ----------------
-        Intent openIntent = pm.getLaunchIntentForPackage(targetPackage);
-        if (openIntent == null)
-            return;
+        Intent openIntent = new Intent(this, PredictionOpenReceiver.class);
 
-        openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        openIntent.putExtra("from_app", currentPackage);
+        openIntent.putExtra("to_app", targetPackage);
 
-        PendingIntent openPendingIntent = PendingIntent.getActivity(
+        PendingIntent openPendingIntent = PendingIntent.getBroadcast(
                 this,
-                1,
+                (int) System.currentTimeMillis(), // unique
                 openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT |
+                PendingIntent.FLAG_CANCEL_CURRENT |
                         PendingIntent.FLAG_IMMUTABLE);
-
         // ---------------- DISMISS ACTION ----------------
         Intent dismissIntent = new Intent(this, PredictionDismissReceiver.class);
         dismissIntent.putExtra("transition_key",
@@ -511,7 +527,30 @@ public class UniversalControlService extends AccessibilityService {
                 .addAction(0, "Open", openPendingIntent)
                 .addAction(0, "Dismiss", dismissPendingIntent)
                 .build();
-
+        manager.cancel(1001);
         manager.notify(1001, notification);
+    }
+
+    private boolean isUtilityApp(String pkg) {
+
+        if (pkg == null)
+            return true;
+
+        if (pkg.contains("settings"))
+            return true;
+        if (pkg.contains("dialer"))
+            return true;
+        if (pkg.contains("camera"))
+            return true;
+        if (pkg.contains("biometric"))
+            return true;
+        if (pkg.contains("permission"))
+            return true;
+
+        return false;
+    }
+
+    private void resetPredictionCooldown() {
+        predictionActive = false;
     }
 }

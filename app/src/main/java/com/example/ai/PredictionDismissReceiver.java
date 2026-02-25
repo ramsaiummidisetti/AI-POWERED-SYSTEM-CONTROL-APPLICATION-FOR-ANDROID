@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-
+import com.example.accessibility.UniversalControlService;
 public class PredictionDismissReceiver extends BroadcastReceiver {
 
     private static final String PREF = "prediction_feedback";
@@ -34,6 +34,13 @@ public class PredictionDismissReceiver extends BroadcastReceiver {
             editor.putInt("dismiss_" + key, dismissCount);
         }
 
-        editor.apply();
+            editor.apply();
+            UniversalControlService service =
+            UniversalControlService.getInstance();
+
+        if (service != null) {
+            service.resetPredictionFlag();
+        }
     }
+    
 }

@@ -104,4 +104,88 @@ public class TransitionTracker {
 
         return strong;
     }
+    public static String predictNextApp(Context context, String currentApp) {
+
+        Map<String, Integer> transitions =
+                TransitionTracker.getAllTransitions(context);
+
+        int totalFromCurrent = 0;
+
+        // 1️⃣ Calculate total outgoing transitions
+        for (Map.Entry<String, Integer> entry : transitions.entrySet()) {
+            if (entry.getKey().startsWith(currentApp + "->")) {
+                totalFromCurrent += entry.getValue();
+            }
+        }
+
+        if (totalFromCurrent == 0)
+            return null;
+
+        double maxConfidence = 0;
+        String bestPrediction = null;
+
+        SharedPreferences prefs =
+                context.getSharedPreferences("prediction_feedback",
+                        Context.MODE_PRIVATE);
+
+        // 2️⃣ Evaluate each possible next app
+        for (Map.Entry<String, Integer> entry : transitions.entrySet()) {
+
+            String key = entry.getKey();
+            int count = entry.getValue();
+
+            if (!key.startsWith(currentApp + "->"))
+                continue;
+
+            String nextApp =
+                    key.substring((currentApp + "->").length());
+
+            // 🔥 Suppression Check (AFTER nextApp is defined)
+            String transitionKey = currentApp + "->" + nextApp;
+
+            long suppressUntil =
+                    prefs.getLong("suppress_" + transitionKey, 0);
+
+            if (System.currentTimeMillis() < suppressUntil)
+                continue;
+
+            double confidence =
+                    (double) count / totalFromCurrent;
+
+            if (confidence > maxConfidence) {
+                maxConfidence = confidence;
+                bestPrediction = nextApp;
+            }
+        }
+
+        // 3️⃣ Suggest only if confidence ≥ 60%
+        if (maxConfidence >= 0.6)
+            return bestPrediction;
+
+        return null;
+    }
+    public static void reinforceTransition(Context context,
+                                       String fromApp,
+                                       String toApp) {
+
+    if (fromApp == null || toApp == null) return;
+
+    SharedPreferences prefs =
+            context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+
+    String key = KEY_PREFIX + fromApp + "->" + toApp;
+
+    int count = prefs.getInt(key, 0);
+
+    int bonus = 2; // reinforcement strength
+
+    prefs.edit()
+            .putInt(key, count + bonus)
+            .apply();
+
+    Log.e("TRANSITIONS",
+            "Reinforced: " + fromApp +
+            "->" + toApp +
+            " NewCount: " + (count + bonus));
+}
 }

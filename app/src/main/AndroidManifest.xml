@@ -96,5 +96,8 @@
         <receiver
             android:name=".ai.PredictionDismissReceiver"
             android:exported="false" />
+            <receiver
+            android:name=".ai.PredictionOpenReceiver"
+            android:exported="false" />
         </application>
 </manifest>
