@@ -88,8 +88,9 @@ public class UniversalControlService extends AccessibilityService {
     // ==========================================================
     // PACKAGE TRACKING
     // ==========================================================
-    @Override
+   
 
+    @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
 
         if (event == null)
@@ -104,30 +105,46 @@ public class UniversalControlService extends AccessibilityService {
 
         String newPackage = pkg.toString();
 
-        // Ignore system noise early
+        // 🚫 Ignore system noise
         if (newPackage.equals(getPackageName()) ||
                 newPackage.equals("com.android.systemui") ||
                 newPackage.contains("launcher") ||
                 newPackage.contains("minusscreen")) {
             return;
         }
+
+        // 🚫 Ignore utilities
         if (isUtilityApp(newPackage)) {
             return;
         }
-        // ==============================
-        // 🔮 Pattern Prediction
-        // ==============================
-        // If package didn't change, ignore
-        if (newPackage.equals(currentPackage))
+
+        // 🚫 If same package, ignore
+        if (newPackage.equals(currentPackage)) {
             return;
+        }
 
         String oldPackage = currentPackage;
 
-        // 🚫 Ignore if old app is utility (don't learn/predict from utilities)
+        // 🚫 First launch protection
+        if (oldPackage == null || oldPackage.isEmpty()) {
+            currentPackage = newPackage;
+            Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
+            return;
+        }
+
+        // 🚫 Ignore learning from utility apps
         if (isUtilityApp(oldPackage)) {
             currentPackage = newPackage;
             return;
         }
+
+        // 📊 Record transition FIRST
+        TransitionTracker.recordTransition(this, newPackage);
+
+        // 🔁 Update current package
+        currentPackage = newPackage;
+
+        Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
 
         // 🔮 Predict based on OLD package
         String predicted = PatternEngine.predictNextApp(this, oldPackage);
@@ -138,16 +155,12 @@ public class UniversalControlService extends AccessibilityService {
                 now - lastPredictionTime > PREDICTION_COOLDOWN) {
 
             lastPredictionTime = now;
+
+            Log.e("PATTERN_DEBUG",
+                    "Prediction fired for: " + predicted);
+
             sendPredictionNotification(predicted);
         }
-
-        // 📊 Record transition AFTER prediction
-        TransitionTracker.recordTransition(this, newPackage);
-
-        // 🔁 Update current
-        currentPackage = newPackage;
-
-        Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
 
         // ==============================
         // 🔁 Automation Logic
@@ -190,7 +203,6 @@ public class UniversalControlService extends AccessibilityService {
             automationHandler.postDelayed(automationRunnable, 2000);
 
         } else {
-
             if (automationRunning) {
                 stopAutomation();
             }
