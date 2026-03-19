@@ -37,4 +37,5 @@ public class PredictionOpenReceiver extends BroadcastReceiver {
             service.resetPredictionFlag();
         }
     }
+    
 }

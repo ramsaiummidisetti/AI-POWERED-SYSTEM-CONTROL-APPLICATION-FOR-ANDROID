@@ -232,6 +232,35 @@
                 android:textSize="14sp"
                 android:layout_marginTop="6dp" />
             </LinearLayout>
+            <!-- 🤖 AI Health Dashboard Button + Label -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:layout_marginStart="24dp">
+
+                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    android:id="@+id/btn_ai_dashboard"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="AI Health Dashboard"
+                    app:srcCompat="@drawable/ic_dashboard"
+                    app:tint="@android:color/white"
+                    app:backgroundTint="@color/blue_700"
+                    android:elevation="12dp"
+                    android:clickable="true"
+                    app:borderWidth="0dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI Dashboard"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:layout_marginTop="6dp"/>
+
+            </LinearLayout>
     </LinearLayout>
 
 </FrameLayout>

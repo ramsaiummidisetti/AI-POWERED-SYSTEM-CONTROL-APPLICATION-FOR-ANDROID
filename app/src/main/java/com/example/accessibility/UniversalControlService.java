@@ -1,35 +1,26 @@
 package com.example.accessibility;
 
-import android.os.Build;
+import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import androidx.core.app.NotificationCompat;
+
 import android.app.PendingIntent;
-import android.view.View;
-import android.view.Gravity;
-import android.graphics.PixelFormat;
-import android.widget.TextView;
+import android.content.Intent;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.content.Intent;
-import com.example.ai.SmartSuggestionManager;
-import com.example.ai.TransitionTracker;
-import com.example.ai.PatternEngine;
-import com.example.ai.PredictionDismissReceiver;
-import com.example.ai.PredictionOpenReceiver;
-import com.example.utils.NotificationHelper;
-import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityServiceInfo;
-import android.os.Bundle;
 import android.util.Log;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.accessibility.AccessibilityNodeInfo;
 
-import java.util.ArrayList;
-import java.util.List;
-import android.content.pm.PackageManager;
-import android.content.pm.ApplicationInfo;
+import com.example.ai.TransitionTracker;
+import com.example.ai.SmartSuggestionManager;
+import com.example.ai.PredictionOpenReceiver;
+import com.example.ml.HybridPredictionEngine;
 
 public class UniversalControlService extends AccessibilityService {
 
@@ -37,16 +28,22 @@ public class UniversalControlService extends AccessibilityService {
     private static final String TAG = "UNIVERSAL_CTRL";
 
     private String currentPackage = "";
+
     private boolean automationRunning = false;
-    private boolean predictionActive = false;
+
     private Handler automationHandler = new Handler(Looper.getMainLooper());
     private Runnable automationRunnable;
+
     private int automationScrollCount = 0;
     private static final int MAX_SCROLLS = 3;
+
     private long lastPredictionTime = 0;
-    private static final long PREDICTION_COOLDOWN = 2 * 60 * 1000; // 2 MINUTES
-    private static final int PREDICTION_NOTIFICATION_ID = 1001;
-    private static final String CHANNEL_ID = "prediction_channel";
+    private static final long PREDICTION_COOLDOWN = 30000;
+
+    private boolean predictionActive = false;
+
+    private long lastEventTime = 0;
+    private static final long EVENT_DEBOUNCE = 800;
 
     public static UniversalControlService getInstance() {
         return instance;
@@ -56,21 +53,22 @@ public class UniversalControlService extends AccessibilityService {
         return currentPackage;
     }
 
-    public void resetPredictionFlag() {
-        predictionActive = false;
-    }
     // ==========================================================
     // SERVICE CONNECT
     // ==========================================================
 
     @Override
     public void onServiceConnected() {
+
         super.onServiceConnected();
+
         instance = this;
 
+        HybridPredictionEngine.initialize(this);
+
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
-        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED |
-                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
 
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
 
@@ -82,13 +80,12 @@ public class UniversalControlService extends AccessibilityService {
 
         setServiceInfo(info);
 
-        Log.e(TAG, "SERVICE CONNECTED");
+        Log.e(TAG, "Accessibility service connected");
     }
 
     // ==========================================================
-    // PACKAGE TRACKING
+    // ACCESSIBILITY EVENT
     // ==========================================================
-   
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -96,75 +93,99 @@ public class UniversalControlService extends AccessibilityService {
         if (event == null)
             return;
 
+        long now = System.currentTimeMillis();
+
+        if (now - lastEventTime < EVENT_DEBOUNCE)
+            return;
+
+        lastEventTime = now;
+
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
             return;
 
         CharSequence pkg = event.getPackageName();
+
         if (pkg == null)
             return;
 
         String newPackage = pkg.toString();
 
-        // 🚫 Ignore system noise
-        if (newPackage.equals(getPackageName()) ||
-                newPackage.equals("com.android.systemui") ||
-                newPackage.contains("launcher") ||
-                newPackage.contains("minusscreen")) {
+        if (isUtilityApp(newPackage))
             return;
-        }
 
-        // 🚫 Ignore utilities
-        if (isUtilityApp(newPackage)) {
+        if (newPackage.equals(currentPackage))
             return;
-        }
-
-        // 🚫 If same package, ignore
-        if (newPackage.equals(currentPackage)) {
-            return;
-        }
 
         String oldPackage = currentPackage;
 
-        // 🚫 First launch protection
         if (oldPackage == null || oldPackage.isEmpty()) {
+
             currentPackage = newPackage;
+
             Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
+
             return;
         }
 
-        // 🚫 Ignore learning from utility apps
-        if (isUtilityApp(oldPackage)) {
-            currentPackage = newPackage;
-            return;
-        }
+        // ==========================================================
+        // SMART SUGGESTION CHECK
+        // ==========================================================
 
-        // 📊 Record transition FIRST
-        TransitionTracker.recordTransition(this, newPackage);
+        long foregroundTime = 20000;
 
-        // 🔁 Update current package
+        SmartSuggestionManager.evaluateAndSuggest(
+                this,
+                newPackage,
+                foregroundTime);
+
+        // ==========================================================
+        // RECORD TRANSITION
+        // ==========================================================
+
+        TransitionTracker.recordTransition(
+                this,
+                oldPackage,
+                newPackage);
+
         currentPackage = newPackage;
 
         Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
 
-        // 🔮 Predict based on OLD package
-        String predicted = PatternEngine.predictNextApp(this, oldPackage);
+        // ==========================================================
+        // HYBRID PREDICTION
+        // ==========================================================
 
-        long now = System.currentTimeMillis();
+        String predicted = null;
+
+        try {
+
+            predicted = HybridPredictionEngine.predictNextApp(
+                    this,
+                    newPackage);
+
+        } catch (Exception e) {
+
+            Log.e("HYBRID_ENGINE", "Prediction crashed", e);
+        }
 
         if (predicted != null &&
+                !predicted.equals(currentPackage) &&
+                !predictionActive &&
                 now - lastPredictionTime > PREDICTION_COOLDOWN) {
+
+            predictionActive = true;
 
             lastPredictionTime = now;
 
-            Log.e("PATTERN_DEBUG",
-                    "Prediction fired for: " + predicted);
+            Log.e("HYBRID_ENGINE",
+                    "Prediction fired: " + predicted);
 
             sendPredictionNotification(predicted);
         }
 
-        // ==============================
-        // 🔁 Automation Logic
-        // ==============================
+        // ==========================================================
+        // AUTOMATION
+        // ==========================================================
 
         if (SmartSuggestionManager.isAutomationActive(currentPackage)) {
 
@@ -172,290 +193,91 @@ public class UniversalControlService extends AccessibilityService {
                 return;
 
             automationRunning = true;
+
             automationScrollCount = 0;
 
-            Log.e("AUTOMATION",
-                    "Starting repeating automation for: " + currentPackage);
-
             automationRunnable = new Runnable() {
+
                 @Override
                 public void run() {
 
                     if (!SmartSuggestionManager.isAutomationActive(currentPackage)) {
+
                         stopAutomation();
+
                         return;
                     }
 
                     if (automationScrollCount >= MAX_SCROLLS) {
+
                         stopAutomation();
+
                         return;
                     }
 
-                    Log.e("AUTOMATION", "Auto scroll executing...");
                     performAction("scroll down");
 
                     automationScrollCount++;
 
-                    automationHandler.postDelayed(this, 10000);
+                    automationHandler.postDelayed(
+                            this,
+                            10000);
                 }
             };
 
-            automationHandler.postDelayed(automationRunnable, 2000);
+            automationHandler.postDelayed(
+                    automationRunnable,
+                    2000);
 
         } else {
-            if (automationRunning) {
+
+            if (automationRunning)
                 stopAutomation();
-            }
         }
     }
 
     @Override
     public void onInterrupt() {
+
         Log.e(TAG, "Service interrupted");
     }
 
     // ==========================================================
-    // MAIN EXECUTION ENTRY
+    // ACTION EXECUTION
     // ==========================================================
 
     public void performAction(String command) {
 
-        Log.e("UNIVERSAL_CTRL", "performAction called with: " + command);
-        if (currentPackage == null) {
-            Log.e(TAG, "No active package");
+        if (currentPackage == null)
             return;
-        }
 
-        // 🚫 Ignore own app
-        if (currentPackage.equals(getPackageName())) {
-            Log.e(TAG, "Ignoring own app");
+        if (getPackageName().equals(currentPackage))
             return;
-        }
 
-        // 🚫 Ignore system UI
-        if (currentPackage.contains("systemui")) {
-            Log.e(TAG, "Ignoring system UI");
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+
+        if (root == null)
             return;
-        }
-
-        // 🚫 Ignore launcher
-        if (currentPackage.contains("launcher")) {
-            Log.e(TAG, "Ignoring launcher");
-            return;
-        }
-
-        AccessibilityNodeInfo root = getSafeRoot();
-
-        if (root == null) {
-            Log.e(TAG, "Root not ready");
-            return;
-        }
 
         command = command.toLowerCase().trim();
 
-        Log.e(TAG, "Trying action in package: " + currentPackage);
-
         if (command.contains("scroll down")) {
-            scroll(root, true);
+
+            root.performAction(
+                    AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+
         } else if (command.contains("scroll up")) {
-            scroll(root, false);
-        } else if (command.startsWith("click ") || command.startsWith("tap ")) {
 
-            String keyword = command
-                    .replaceFirst("click ", "")
-                    .replaceFirst("tap ", "");
-
-            clickSemantic(root, keyword);
-        } else if (command.startsWith("type ")) {
-
-            String text = command.replaceFirst("type ", "");
-
-            typeText(root, text);
+            root.performAction(
+                    AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
         }
 
         root.recycle();
-    }// ==========================================================
-     // SAFE ROOT (NO BLOCKING)
-     // ==========================================================
-
-    private AccessibilityNodeInfo getSafeRoot() {
-
-        for (int i = 0; i < 5; i++) {
-
-            AccessibilityNodeInfo root = getRootInActiveWindow();
-
-            if (root != null && root.getChildCount() > 0) {
-                return root;
-            }
-
-            try {
-                Thread.sleep(150);
-            } catch (InterruptedException ignored) {
-            }
-        }
-
-        Log.e(TAG, "Root not ready after wait");
-        return null;
     }
 
     // ==========================================================
-    // SCROLL
+    // STOP AUTOMATION
     // ==========================================================
-
-    private void scroll(AccessibilityNodeInfo root, boolean forward) {
-
-        Log.e(TAG, "Trying scroll in package: " + currentPackage);
-
-        List<AccessibilityNodeInfo> nodes = new ArrayList<>();
-        collectNodes(root, nodes);
-
-        for (AccessibilityNodeInfo node : nodes) {
-
-            if (node == null)
-                continue;
-            if (!node.isVisibleToUser())
-                continue;
-            if (!node.isScrollable())
-                continue;
-
-            if (!node.getActionList().contains(
-                    forward
-                            ? AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD
-                            : AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD)) {
-                continue;
-            }
-
-            boolean result = node.performAction(
-                    forward
-                            ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-                            : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
-
-            Log.e(TAG, "Scroll result: " + result);
-
-            recycleAll(nodes);
-            return;
-        }
-
-        Log.e(TAG, "No scrollable visible node found");
-        recycleAll(nodes);
-    }
-
-    // ==========================================================
-    // CLICK
-    // ==========================================================
-
-    private void clickSemantic(AccessibilityNodeInfo root, String keyword) {
-
-        List<AccessibilityNodeInfo> nodes = new ArrayList<>();
-        collectNodes(root, nodes);
-
-        keyword = keyword.toLowerCase().trim();
-
-        for (AccessibilityNodeInfo node : nodes) {
-
-            if (node == null)
-                continue;
-            if (!node.isVisibleToUser())
-                continue;
-
-            CharSequence text = node.getText();
-            CharSequence desc = node.getContentDescription();
-
-            boolean match = false;
-
-            if (text != null &&
-                    text.toString().toLowerCase().contains(keyword)) {
-                match = true;
-            }
-
-            if (!match && desc != null &&
-                    desc.toString().toLowerCase().contains(keyword)) {
-                match = true;
-            }
-
-            if (match) {
-
-                AccessibilityNodeInfo parent = node;
-
-                while (parent != null) {
-
-                    if (parent.isClickable()) {
-
-                        parent.performAction(
-                                AccessibilityNodeInfo.ACTION_CLICK);
-
-                        Log.e(TAG, "Clicked: " + keyword);
-
-                        recycleAll(nodes);
-                        return;
-                    }
-
-                    parent = parent.getParent();
-                }
-            }
-        }
-
-        recycleAll(nodes);
-    }
-
-    // ==========================================================
-    // TYPE
-    // ==========================================================
-
-    private void typeText(AccessibilityNodeInfo root, String text) {
-
-        List<AccessibilityNodeInfo> nodes = new ArrayList<>();
-        collectNodes(root, nodes);
-
-        for (AccessibilityNodeInfo node : nodes) {
-
-            if (node == null)
-                continue;
-
-            if (node.isEditable()) {
-
-                Bundle args = new Bundle();
-                args.putCharSequence(
-                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                        text);
-                node.performAction(
-                        AccessibilityNodeInfo.ACTION_SET_TEXT,
-                        args);
-
-                Log.e(TAG, "Typed: " + text);
-
-                recycleAll(nodes);
-                return;
-            }
-        }
-
-        recycleAll(nodes);
-    }
-
-    // ==========================================================
-    // NODE COLLECTION
-    // ==========================================================
-
-    private void collectNodes(AccessibilityNodeInfo node,
-            List<AccessibilityNodeInfo> list) {
-
-        if (node == null)
-            return;
-
-        list.add(node);
-
-        for (int i = 0; i < node.getChildCount(); i++) {
-            collectNodes(node.getChild(i), list);
-        }
-    }
-
-    private void recycleAll(List<AccessibilityNodeInfo> nodes) {
-
-        for (AccessibilityNodeInfo n : nodes) {
-            if (n != null)
-                n.recycle();
-        }
-    }
 
     private void stopAutomation() {
 
@@ -463,106 +285,127 @@ public class UniversalControlService extends AccessibilityService {
             return;
 
         automationHandler.removeCallbacks(automationRunnable);
+
         automationRunning = false;
+
         automationScrollCount = 0;
 
         Log.e("AUTOMATION", "Automation stopped");
+
+        resetPredictionFlag();
     }
 
-    public void forceStopAutomation(String appPackage) {
-
-        if (!appPackage.equals(currentPackage))
-            return;
-
-        if (automationRunnable != null) {
-            automationHandler.removeCallbacks(automationRunnable);
-        }
-
-        automationRunning = false;
-
-        Log.e("AUTOMATION", "Force stopped for: " + appPackage);
-    }
+    // ==========================================================
+    // PREDICTION NOTIFICATION
+    // ==========================================================
 
     private void sendPredictionNotification(String targetPackage) {
 
-        PackageManager pm = getPackageManager();
-        String appName = targetPackage;
-
-        try {
-            appName = pm.getApplicationLabel(
-                    pm.getApplicationInfo(targetPackage, 0)).toString();
-        } catch (Exception ignored) {
-        }
-
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        NotificationManager manager = (NotificationManager) getSystemService(
+                NOTIFICATION_SERVICE);
 
         String channelId = "prediction_channel";
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
             NotificationChannel channel = new NotificationChannel(
                     channelId,
                     "Smart Predictions",
                     NotificationManager.IMPORTANCE_HIGH);
+
             manager.createNotificationChannel(channel);
         }
 
-        // ---------------- OPEN ACTION ----------------
-        Intent openIntent = new Intent(this, PredictionOpenReceiver.class);
+        Intent openIntent = new Intent(this,
+                PredictionOpenReceiver.class);
 
         openIntent.putExtra("from_app", currentPackage);
         openIntent.putExtra("to_app", targetPackage);
 
         PendingIntent openPendingIntent = PendingIntent.getBroadcast(
                 this,
-                (int) System.currentTimeMillis(), // unique
+                1,
                 openIntent,
-                PendingIntent.FLAG_CANCEL_CURRENT |
-                        PendingIntent.FLAG_IMMUTABLE);
-        // ---------------- DISMISS ACTION ----------------
-        Intent dismissIntent = new Intent(this, PredictionDismissReceiver.class);
-        dismissIntent.putExtra("transition_key",
-                currentPackage + "->" + targetPackage);
-
-        PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(
-                this,
-                2,
-                dismissIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT |
                         PendingIntent.FLAG_IMMUTABLE);
-        // ---------------- BUILD NOTIFICATION ----------------
+
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Smart Routine Suggestion")
-                .setContentText("Open " + appName + "?")
+                .setSmallIcon(android.R.drawable.ic_menu_view)
+                .setContentTitle("Smart Suggestion")
+                .setContentText("Open predicted app?")
                 .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .addAction(0, "Open", openPendingIntent)
-                .addAction(0, "Dismiss", dismissPendingIntent)
+                .addAction(0,
+                        "Open",
+                        openPendingIntent)
                 .build();
-        manager.cancel(1001);
+
         manager.notify(1001, notification);
+
+        Log.e("HYBRID_ENGINE",
+                "Sending suggestion for: " + targetPackage);
     }
+
+    // ==========================================================
+    // UTILITY APP FILTER
+    // ==========================================================
 
     private boolean isUtilityApp(String pkg) {
 
         if (pkg == null)
             return true;
 
+        if (pkg.equals(getPackageName()))
+            return true;
+
+        if (pkg.equals("com.android.systemui"))
+            return true;
+
+        if (pkg.contains("launcher"))
+            return true;
+
         if (pkg.contains("settings"))
             return true;
-        if (pkg.contains("dialer"))
+
+        if (pkg.contains("securitycenter"))
             return true;
-        if (pkg.contains("camera"))
-            return true;
-        if (pkg.contains("biometric"))
-            return true;
-        if (pkg.contains("permission"))
+
+        if (pkg.contains("inputmethod"))
             return true;
 
         return false;
     }
 
-    private void resetPredictionCooldown() {
+    // ==========================================================
+    // RESET PREDICTION FLAG
+    // ==========================================================
+
+    public void resetPredictionFlag() {
+
         predictionActive = false;
+
+        Log.e(TAG, "Prediction flag reset");
+    }
+
+    // ==========================================================
+    // FORCE STOP AUTOMATION
+    // ==========================================================
+
+    public void forceStopAutomation(String appPackage) {
+
+        if (appPackage == null)
+            return;
+
+        if (!appPackage.equals(currentPackage))
+            return;
+
+        if (automationRunnable != null)
+            automationHandler.removeCallbacks(automationRunnable);
+
+        automationRunning = false;
+
+        automationScrollCount = 0;
+
+        Log.e("AUTOMATION",
+                "Force stopped for: " + appPackage);
     }
 }

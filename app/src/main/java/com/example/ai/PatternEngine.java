@@ -82,7 +82,7 @@ public class PatternEngine {
             }
 
             // 3️⃣ Suggest only if confidence ≥ 60%
-            if (maxConfidence >= 0.6)
+            if (maxConfidence >= 0.4)
                 return bestPrediction;
 
             return null;

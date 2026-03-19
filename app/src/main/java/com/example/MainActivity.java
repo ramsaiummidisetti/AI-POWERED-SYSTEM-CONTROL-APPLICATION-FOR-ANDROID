@@ -4,27 +4,20 @@ import com.example.accessibility.UniversalControlService;
 import java.util.Map;
 import android.app.usage.UsageStats;
 import android.util.Pair;
-
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.drawable.Icon;
-
 import android.net.Uri;
 import android.provider.Settings;
 import android.os.Build;
 import com.example.utils.SpeechController;
-
 import android.view.GestureDetector;
 import android.view.MotionEvent;
-
 import com.example.utils.ContextManager;
 import com.example.utils.GestureHandler;
-
 import com.example.utils.AIIntentEngine;
-
 import com.example.voice.WakeWordEngine;
 import com.example.voice.WakeWordListener;
-
 import android.Manifest;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -53,11 +46,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import java.util.LinkedList;
 import java.util.Queue;
-
 import android.nfc.NfcAdapter;
 import android.widget.TextView;
 import android.os.Vibrator;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -69,7 +60,6 @@ import androidx.appcompat.app.AppCompatDelegate;
 import android.view.View;
 import android.view.animation.AnimationUtils;
 import com.google.android.material.appbar.MaterialToolbar;
-
 import com.example.utils.LogEvent;
 import com.example.utils.LogManager;
 import com.example.utils.LogSyncWorker;
@@ -81,27 +71,26 @@ import com.example.utils.NetworkHelper;
 import com.example.utils.ReminderReceiver;
 import com.example.utils.DashboardAdapter;
 import com.example.utils.AlertManager;
-
 import android.speech.tts.TextToSpeech;
-
 import java.util.Locale;
-
 import com.example.utils.IntentParser;
 import com.example.utils.CommandOrchestrator;
 import com.example.utils.VoiceHelper;
 import com.example.utils.VoiceFeedback;
-
 import org.json.JSONObject;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.ArrayList;
 import java.util.List;
-
 import com.example.utils.UsagePatternAnalyzer;
 import com.example.ai.PatternDetector;
 import com.example.ai.AutomationSuggester;
 import com.example.ai.TaskScriptParser;
 import com.example.ai.ScriptEngine;
 import com.example.ai.SmartSuggestionManager;
+import com.example.ai.SensorAutomationManager;
+import com.example.ai.TransitionTracker;
+import com.example.ml.HybridPredictionEngine;
+import com.example.dashboard.AIHealthDashboard;
 import android.os.StrictMode;
 
 public class MainActivity extends AppCompatActivity implements WakeWordListener, VoiceFeedback {
@@ -111,39 +100,30 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
     private WakeWordEngine wakeWordEngine;
     private static final String TAG = "MainActivity";
     private boolean isDark = false;
-
     private AlertManager alertManager;
-
     private AIIntentEngine aiIntentEngine;
-
-    // RecyclerView card data
     private List<String> titles;
     private List<String> details;
     private DashboardAdapter adapter;
-
     private BluetoothAdapter bluetoothAdapter;
-
-    // private TextToSpeech textToSpeech;
     private static final int REQ_CODE_SPEECH_INPUT = 100;
-
     private LinearLayout voiceFeedbackContainer;
     private ScrollView voiceScrollView;
     private Queue<String> feedbackQueue = new LinkedList<>();
-
     private TextToSpeech textToSpeech;
     private boolean ttsReady = false;
-
     private SpeechController speechController;
-
     private TextView tvListening;
     private CommandOrchestrator commandOrchestrator;
-
     private boolean awaitingConfirmation = false;
     private String lastSuggestedPackage = null;
+    private SensorAutomationManager sensorAutomationManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        HybridPredictionEngine.initialize(this);
 
         commandOrchestrator = new CommandOrchestrator(this, this);
 
@@ -202,7 +182,7 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
         setContentView(R.layout.activity_main);
-
+        
         predictionReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -214,7 +194,6 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         };
 
         predictionFilter = new IntentFilter("PREDICTION_EVENT");
-
         // 🔥 Overlay permission check
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             textToSpeech = new TextToSpeech(this, status -> {
@@ -317,7 +296,18 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                         AutomationManagerActivity.class);
                 startActivity(intent);
             });
+            // AI Dashboard Button
+            FloatingActionButton dashboardBtn =
+                    findViewById(R.id.btn_ai_dashboard);
 
+            dashboardBtn.setOnClickListener(v -> {
+
+                Intent intent =
+                        new Intent(MainActivity.this,
+                        AIHealthDashboard.class);
+
+                startActivity(intent);
+            });
             // Initialize Bluetooth
             bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
@@ -398,6 +388,9 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             SmartSuggestions.checkBatteryAndSuggest(this);
             runUsageAnalysisSafely();
         }
+        sensorAutomationManager = new SensorAutomationManager(this, commandOrchestrator);
+        sensorAutomationManager.start();
+
     }
 
     @Override
@@ -584,17 +577,7 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         Intent intent = new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
         startActivity(intent);
     }
-    // AudioManager audioManager =
-    // (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
-    // audioManager.requestAudioFocus(
-    // null,
-    // AudioManager.STREAM_MUSIC,
-    // AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-    // );
-
-    // Simple speak() replacement without TTS (to prevent app crash)
-    // Simple speak() without TTS
     @Override
     public void speak(String text) {
 
@@ -613,15 +596,6 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
         Log.e("TTS", "Speaking: " + text);
     }
-
-    // public void speak(String text) {
-    // if (textToSpeech != null) {
-    // textToSpeech.speak(text,
-    // TextToSpeech.QUEUE_FLUSH,
-    // null,
-    // null);
-    // }
-    // }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
@@ -650,7 +624,9 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             textToSpeech.stop();
             textToSpeech.shutdown();
         }
-
+        if (sensorAutomationManager != null) {
+            sensorAutomationManager.stop();
+        }
         VoiceHelper.shutdown();
         super.onDestroy();
     }
@@ -738,10 +714,6 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
         Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
 
-        // =====================================================
-        // 🔥 PRIORITY -1 — Suggestion Confirmation Layer
-        // =====================================================
-
         if (awaitingConfirmation) {
 
             if (userCommand.equals("yes") || userCommand.equals("okay") || userCommand.contains("create")
@@ -766,11 +738,6 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 return;
             }
         }
-
-        // =====================================================
-        // 🔥 PRIORITY 0 — CRITICAL RULE-BASED FALLBACK
-        // =====================================================
-
         // Emergency must NEVER depend on ML
         if (userCommand.contains("emergency")) {
             commandOrchestrator.handleIntent("emergency", userCommand);
@@ -794,21 +761,12 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             commandOrchestrator.handleIntent("get_current_time", userCommand);
             return;
         }
-
-        // =====================================================
-        // 🔥 PRIORITY 1 — MULTI STEP SCRIPTING
-        // =====================================================
-
         List<String> actions = TaskScriptParser.parseActions(userCommand);
 
         if (actions != null && actions.size() > 1) {
             ScriptEngine.execute(commandOrchestrator, actions);
             return;
         }
-
-        // =====================================================
-        // 🔥 PRIORITY 2 — DIRECT UI AUTOMATION
-        // =====================================================
 
         if (userCommand.startsWith("click") || userCommand.startsWith("tap") || userCommand.startsWith("type")
                 || userCommand.contains("scroll") || userCommand.equals("back") || userCommand.equals("home")
@@ -824,10 +782,6 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
             return;
         }
-
-        // =====================================================
-        // 🔥 PRIORITY 3 — ML INTENT ENGINE
-        // =====================================================
 
         if (aiIntentEngine == null) {
             speak("AI engine not ready");
@@ -915,13 +869,11 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
         PackageManager pm = getPackageManager();
         String appName = targetPackage;
-
         try {
             appName = pm.getApplicationLabel(
                     pm.getApplicationInfo(targetPackage, 0)).toString();
         } catch (Exception ignored) {
         }
-
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Smart Routine Suggestion")
                 .setMessage("You usually open " + appName +

@@ -78,7 +78,10 @@
         android:label="Dashboard Screen" />
         <activity android:name=".HelperActivity" android:exported="true"
         android:label="Helper Screen" />
-
+        <activity android:name=".AutomationManagerActivity"/>
+            <activity
+        android:name=".dashboard.AIHealthDashboard"
+        android:exported="false"/>
         <service
             android:name="com.example.accessibility.UniversalControlService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -92,12 +95,14 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config"/>
         </service>
-        <activity android:name=".AutomationManagerActivity"/>
+        
         <receiver
             android:name=".ai.PredictionDismissReceiver"
             android:exported="false" />
             <receiver
             android:name=".ai.PredictionOpenReceiver"
             android:exported="false" />
+             <activity android:name=".com.example.dashboard.AIHealthDashboard"/>
         </application>
+       
 </manifest>

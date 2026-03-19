@@ -183,7 +183,18 @@ public class CommandOrchestrator {
             case "emergency":
                 activateEmergency();
                 break;
+                
+            case "enable_silent_mode":
 
+            AudioManager audioManager =
+                (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+
+            if(audioManager != null){
+                audioManager.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+            }
+
+            speak("Phone set to silent mode");
+            break;
             default:
                 speak("Command recognized but not implemented yet");
         }

@@ -6,63 +6,61 @@ import android.util.Log;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 public class TransitionTracker {
+
     private static final String TAG = "TRANSITIONS";
+
     private static final String PREF_NAME = "transition_prefs";
     private static final String KEY_PREFIX = "transition_";
-    private static final String KEY_LAST_APP = "last_app";
 
-    private static String lastApp = null;
+    // ==========================================================
+    // RECORD TRANSITION
+    // ==========================================================
 
-   public static void recordTransition(Context context, String currentPackage) {
+    public static void recordTransition(Context context,
+                                        String fromApp,
+                                        String toApp) {
 
-        if (currentPackage == null) return;
+        if (fromApp == null || toApp == null) return;
 
-        // 🚫 Ignore system / noise packages
-        if (isIgnoredPackage(context, currentPackage)) return;
+        if (fromApp.equals(toApp)) return;
+
+        if (isIgnoredPackage(context, fromApp)) return;
+
+        if (isIgnoredPackage(context, toApp)) return;
 
         SharedPreferences prefs =
                 context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
 
-        String lastApp = prefs.getString(KEY_LAST_APP, null);
+        String key = KEY_PREFIX + fromApp + "->" + toApp;
 
-        // First launch case
-        if (lastApp == null) {
-            prefs.edit().putString(KEY_LAST_APP, currentPackage).apply();
-            return;
-        }
-
-        // Same app transition ignore
-        if (lastApp.equals(currentPackage)) return;
-
-        // Ignore if last app was noise
-        if (isIgnoredPackage(context, lastApp)) {
-            prefs.edit().putString(KEY_LAST_APP, currentPackage).apply();
-            return;
-        }
-
-        String key = KEY_PREFIX + lastApp + "->" + currentPackage;
-
-        int count = prefs.getInt(key, 0);
-        count++;
+        int count = prefs.getInt(key, 0) + 1;
 
         prefs.edit()
                 .putInt(key, count)
-                .putString(KEY_LAST_APP, currentPackage)
                 .apply();
 
-        Log.e("TRANSITIONS",
-                "Recorded: " + lastApp + "->" +
-                currentPackage + " Count: " + count);
+        Log.e(TAG,
+                "Recorded: " +
+                        fromApp +
+                        " -> " +
+                        toApp +
+                        " | Count: " +
+                        count);
     }
+
+    // ==========================================================
+    // GET ALL TRANSITIONS
+    // ==========================================================
+
     public static Map<String, Integer> getAllTransitions(Context context) {
 
         SharedPreferences prefs =
                 context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
 
         Map<String, ?> allEntries = prefs.getAll();
+
         Map<String, Integer> result = new HashMap<>();
 
         for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
@@ -78,42 +76,49 @@ public class TransitionTracker {
 
         return result;
     }
-  
-    private static boolean isIgnoredPackage(Context context, String pkg) {
 
-        if (pkg == null) return true;
+    // ==========================================================
+    // STRONG TRANSITIONS
+    // ==========================================================
 
-        if (pkg.equals(context.getPackageName())) return true;
+    public static Map<String, Integer> getStrongTransitions(Context context,
+                                                            int minCount) {
 
-        if (pkg.equals("com.android.systemui")) return true;
-        if (pkg.contains("launcher")) return true;
+        Map<String, Integer> all =
+                getAllTransitions(context);
 
-        return false;
-    }
-    public static Map<String, Integer> getStrongTransitions(Context context, int minCount) {
-
-        Map<String, Integer> all = getAllTransitions(context);
-        Map<String, Integer> strong = new HashMap<>();
+        Map<String, Integer> strong =
+                new HashMap<>();
 
         for (Map.Entry<String, Integer> entry : all.entrySet()) {
 
             if (entry.getValue() >= minCount) {
-                strong.put(entry.getKey(), entry.getValue());
+
+                strong.put(entry.getKey(),
+                        entry.getValue());
             }
         }
 
         return strong;
     }
-    public static String predictNextApp(Context context, String currentApp) {
+
+    // ==========================================================
+    // PREDICT NEXT APP
+    // ==========================================================
+
+    public static String predictNextApp(Context context,
+                                        String currentApp) {
 
         Map<String, Integer> transitions =
-                TransitionTracker.getAllTransitions(context);
+                getAllTransitions(context);
 
         int totalFromCurrent = 0;
 
-        // 1️⃣ Calculate total outgoing transitions
+        // Calculate total outgoing transitions
         for (Map.Entry<String, Integer> entry : transitions.entrySet()) {
+
             if (entry.getKey().startsWith(currentApp + "->")) {
+
                 totalFromCurrent += entry.getValue();
             }
         }
@@ -122,16 +127,13 @@ public class TransitionTracker {
             return null;
 
         double maxConfidence = 0;
+
         String bestPrediction = null;
 
-        SharedPreferences prefs =
-                context.getSharedPreferences("prediction_feedback",
-                        Context.MODE_PRIVATE);
-
-        // 2️⃣ Evaluate each possible next app
         for (Map.Entry<String, Integer> entry : transitions.entrySet()) {
 
             String key = entry.getKey();
+
             int count = entry.getValue();
 
             if (!key.startsWith(currentApp + "->"))
@@ -140,52 +142,114 @@ public class TransitionTracker {
             String nextApp =
                     key.substring((currentApp + "->").length());
 
-            // 🔥 Suppression Check (AFTER nextApp is defined)
-            String transitionKey = currentApp + "->" + nextApp;
-
-            long suppressUntil =
-                    prefs.getLong("suppress_" + transitionKey, 0);
-
-            if (System.currentTimeMillis() < suppressUntil)
-                continue;
-
             double confidence =
                     (double) count / totalFromCurrent;
 
             if (confidence > maxConfidence) {
+
                 maxConfidence = confidence;
+
                 bestPrediction = nextApp;
             }
         }
 
-        // 3️⃣ Suggest only if confidence ≥ 60%
-        if (maxConfidence >= 0.6)
+        // Suggest only if confidence >= 40%
+        if (maxConfidence >= 0.3)
             return bestPrediction;
 
         return null;
     }
+
+    // ==========================================================
+    // REINFORCEMENT LEARNING
+    // ==========================================================
+
     public static void reinforceTransition(Context context,
-                                       String fromApp,
-                                       String toApp) {
+                                           String fromApp,
+                                           String toApp) {
 
-    if (fromApp == null || toApp == null) return;
+        if (fromApp == null || toApp == null)
+            return;
 
-    SharedPreferences prefs =
-            context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs =
+                context.getSharedPreferences(PREF_NAME,
+                        Context.MODE_PRIVATE);
 
-    String key = KEY_PREFIX + fromApp + "->" + toApp;
+        String key =
+                KEY_PREFIX + fromApp + "->" + toApp;
 
-    int count = prefs.getInt(key, 0);
+        int count =
+                prefs.getInt(key, 0);
 
-    int bonus = 2; // reinforcement strength
+        int bonus = 2;
 
-    prefs.edit()
-            .putInt(key, count + bonus)
-            .apply();
+        prefs.edit()
+                .putInt(key, count + bonus)
+                .apply();
 
-    Log.e("TRANSITIONS",
-            "Reinforced: " + fromApp +
-            "->" + toApp +
-            " NewCount: " + (count + bonus));
-}
+        Log.e(TAG,
+                "Reinforced: " +
+                        fromApp +
+                        " -> " +
+                        toApp +
+                        " | NewCount: " +
+                        (count + bonus));
+    }
+
+    // ==========================================================
+    // TOTAL TRANSITIONS
+    // ==========================================================
+
+    public static int getTotalTransitions(Context context) {
+
+        SharedPreferences prefs =
+                context.getSharedPreferences(PREF_NAME,
+                        Context.MODE_PRIVATE);
+
+        int total = 0;
+
+        for (String key : prefs.getAll().keySet()) {
+
+            if (key.startsWith(KEY_PREFIX)) {
+
+                total += prefs.getInt(key, 0);
+            }
+        }
+
+        return total;
+    }
+
+    // ==========================================================
+    // IGNORE SYSTEM APPS
+    // ==========================================================
+
+    private static boolean isIgnoredPackage(Context context,
+                                            String pkg) {
+
+        if (pkg == null) return true;
+
+        if (pkg.equals(context.getPackageName()))
+            return true;
+
+        if (pkg.equals("com.android.systemui"))
+            return true;
+
+        if (pkg.contains("launcher"))
+            return true;
+
+        if (pkg.contains("inputmethod"))
+            return true;
+
+        return false;
+    }
+    public static void resetTransitions(Context context) {
+
+        SharedPreferences prefs =
+                context.getSharedPreferences("transition_prefs",
+                        Context.MODE_PRIVATE);
+
+        prefs.edit().clear().apply();
+
+        Log.e("TRANSITIONS", "All transition data RESET");
+    }
 }
