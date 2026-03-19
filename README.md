@@ -127,3 +127,26 @@ Example:
 1. Clone the repository:
 ```bash
 git clone https://github.com/ramsaiummidisetti/ai-system-control-android.git
+```
+## 🔥 Highlights
+
+- Real-world AI integration with Android system  
+- On-device ML (offline functionality)  
+- Hybrid architecture (rule-based + ML)  
+- Modular and scalable design  
+
+---
+
+## 🚧 Future Improvements
+
+- Context-aware multi-step automation  
+- Personalized AI assistant behavior  
+- Voice response using Text-to-Speech (TTS)  
+- Integration with cloud-based services  
+- Improved ML model accuracy  
+
+---
+
+## 📌 Conclusion
+
+This project demonstrates the integration of AI, NLP, and Android system APIs to build an intelligent assistant capable of executing real-world tasks efficiently. It reflects strong system design thinking and practical implementation of machine learning in mobile applications.
