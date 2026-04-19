@@ -16,21 +16,27 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-
+import android.net.Uri;
+import java.util.List;
+import com.example.utils.YouTubeApiHelper;
+import com.example.database.DataManager;
 import com.example.ai.TransitionTracker;
 import com.example.ai.SmartSuggestionManager;
 import com.example.ai.PredictionOpenReceiver;
+import com.example.ai.AIMetricsManager;
 import com.example.ml.HybridPredictionEngine;
 
 public class UniversalControlService extends AccessibilityService {
 
+    private DataManager dataManager;
     private static UniversalControlService instance;
     private static final String TAG = "UNIVERSAL_CTRL";
 
     private String currentPackage = "";
+    private String lastQuery = "";
+
 
     private boolean automationRunning = false;
-
     private Handler automationHandler = new Handler(Looper.getMainLooper());
     private Runnable automationRunnable;
 
@@ -49,27 +55,19 @@ public class UniversalControlService extends AccessibilityService {
         return instance;
     }
 
-    public String getCurrentPackage() {
-        return currentPackage;
-    }
-
-    // ==========================================================
-    // SERVICE CONNECT
-    // ==========================================================
-
     @Override
     public void onServiceConnected() {
 
         super.onServiceConnected();
+
+        dataManager = new DataManager(this);
 
         instance = this;
 
         HybridPredictionEngine.initialize(this);
 
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
-
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
-
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
 
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS |
@@ -83,88 +81,50 @@ public class UniversalControlService extends AccessibilityService {
         Log.e(TAG, "Accessibility service connected");
     }
 
-    // ==========================================================
-    // ACCESSIBILITY EVENT
-    // ==========================================================
-
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
 
-        if (event == null)
-            return;
+        if (event == null) return;
 
         long now = System.currentTimeMillis();
 
-        if (now - lastEventTime < EVENT_DEBOUNCE)
-            return;
-
+        if (now - lastEventTime < EVENT_DEBOUNCE) return;
         lastEventTime = now;
 
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
             return;
 
         CharSequence pkg = event.getPackageName();
-
-        if (pkg == null)
-            return;
+        if (pkg == null) return;
 
         String newPackage = pkg.toString();
 
-        if (isUtilityApp(newPackage))
-            return;
-
-        if (newPackage.equals(currentPackage))
-            return;
+        if (isUtilityApp(newPackage)) return;
+        if (newPackage.equals(currentPackage)) return;
 
         String oldPackage = currentPackage;
 
         if (oldPackage == null || oldPackage.isEmpty()) {
-
             currentPackage = newPackage;
-
-            Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
-
             return;
         }
 
-        // ==========================================================
-        // SMART SUGGESTION CHECK
-        // ==========================================================
-
-        long foregroundTime = 20000;
-
-        SmartSuggestionManager.evaluateAndSuggest(
-                this,
-                newPackage,
-                foregroundTime);
-
-        // ==========================================================
-        // RECORD TRANSITION
-        // ==========================================================
-
-        TransitionTracker.recordTransition(
-                this,
-                oldPackage,
-                newPackage);
-
+        // Record transition
+        TransitionTracker.recordTransition(this, oldPackage, newPackage);
+        dataManager.printContextLogs();
         currentPackage = newPackage;
+
+        if (dataManager != null) {
+            dataManager.insertContext(newPackage, "app_open");
+        }
 
         Log.e(TAG, "ACTIVE PACKAGE: " + currentPackage);
 
-        // ==========================================================
-        // HYBRID PREDICTION
-        // ==========================================================
-
+        // Prediction
         String predicted = null;
-
         try {
-
-            predicted = HybridPredictionEngine.predictNextApp(
-                    this,
-                    newPackage);
-
+            predicted = HybridPredictionEngine.predictNextApp(this, newPackage);
         } catch (Exception e) {
-
             Log.e("HYBRID_ENGINE", "Prediction crashed", e);
         }
 
@@ -174,71 +134,22 @@ public class UniversalControlService extends AccessibilityService {
                 now - lastPredictionTime > PREDICTION_COOLDOWN) {
 
             predictionActive = true;
-
             lastPredictionTime = now;
 
-            Log.e("HYBRID_ENGINE",
-                    "Prediction fired: " + predicted);
+            AIMetricsManager.incrementPrediction(this);
+
+            AIMetricsManager.saveLastPrediction(
+                    this,
+                    currentPackage,
+                    predicted
+            );
 
             sendPredictionNotification(predicted);
-        }
-
-        // ==========================================================
-        // AUTOMATION
-        // ==========================================================
-
-        if (SmartSuggestionManager.isAutomationActive(currentPackage)) {
-
-            if (automationRunning)
-                return;
-
-            automationRunning = true;
-
-            automationScrollCount = 0;
-
-            automationRunnable = new Runnable() {
-
-                @Override
-                public void run() {
-
-                    if (!SmartSuggestionManager.isAutomationActive(currentPackage)) {
-
-                        stopAutomation();
-
-                        return;
-                    }
-
-                    if (automationScrollCount >= MAX_SCROLLS) {
-
-                        stopAutomation();
-
-                        return;
-                    }
-
-                    performAction("scroll down");
-
-                    automationScrollCount++;
-
-                    automationHandler.postDelayed(
-                            this,
-                            10000);
-                }
-            };
-
-            automationHandler.postDelayed(
-                    automationRunnable,
-                    2000);
-
-        } else {
-
-            if (automationRunning)
-                stopAutomation();
         }
     }
 
     @Override
     public void onInterrupt() {
-
         Log.e(TAG, "Service interrupted");
     }
 
@@ -248,61 +159,236 @@ public class UniversalControlService extends AccessibilityService {
 
     public void performAction(String command) {
 
-        if (currentPackage == null)
-            return;
+        if (currentPackage == null) return;
 
-        if (getPackageName().equals(currentPackage))
-            return;
+        if (getPackageName().equals(currentPackage)) return;
 
         AccessibilityNodeInfo root = getRootInActiveWindow();
-
-        if (root == null)
-            return;
+        if (root == null) return;
 
         command = command.toLowerCase().trim();
 
         if (command.contains("scroll down")) {
 
-            root.performAction(
-                    AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+            root.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
 
         } else if (command.contains("scroll up")) {
 
-            root.performAction(
-                    AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
-        }
+            root.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
 
+        } else if (command.contains("play")) {
+
+
+            String query = extractQuery(command);
+            int time = extractTimeInSeconds(command);
+
+            if (query.isEmpty()) {
+                query = "trending video";
+            }
+
+            // openYouTubeWithTime(query, time);
+            playVideoWithTimestamp(command);
+        }
         root.recycle();
     }
 
     // ==========================================================
-    // STOP AUTOMATION
+    // YOUTUBE AUTOMATION
     // ==========================================================
 
-    private void stopAutomation() {
+    private void retryYouTubeClick(int attempts) {
 
-        if (!automationRunning)
+        if (attempts <= 0) {
+            Log.e("AI_AUTO", "Retry failed");
             return;
+        }
 
-        automationHandler.removeCallbacks(automationRunnable);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
 
-        automationRunning = false;
+            AccessibilityNodeInfo root = getRootInActiveWindow();
 
-        automationScrollCount = 0;
+            if (root != null &&
+                    root.getPackageName() != null &&
+                    root.getPackageName().toString().contains("youtube")) {
 
-        Log.e("AUTOMATION", "Automation stopped");
+                boolean success = clickMatchingVideo(root, lastQuery);
 
-        resetPredictionFlag();
+                // 🔥 fallback if matching fails
+                if (!success) {
+                    Log.e("AI_AUTO", "Matching failed → trying container click");
+                    success = clickAnyVideoContainer(root);
+                }
+
+                if (!success) {
+                    retryYouTubeClick(attempts - 1);
+                }
+
+            } else {
+                retryYouTubeClick(attempts - 1);
+            }
+
+        }, 4000);
     }
 
+   private boolean clickMatchingVideo(AccessibilityNodeInfo root, String query) {
+
+        if (root == null) return false;
+
+        List<AccessibilityNodeInfo> titles =
+                root.findAccessibilityNodeInfosByViewId(
+                        "com.google.android.youtube:id/title");
+
+        if (titles == null || titles.isEmpty()) {
+            Log.e("AI_AUTO", "No titles found → fallback");
+            return clickFirstAvailable(root);   // 🔥 fallback
+        }
+
+        AccessibilityNodeInfo bestNode = null;
+        int bestScore = 0;
+
+        query = query.toLowerCase();
+
+        for (AccessibilityNodeInfo node : titles) {
+
+            if (node == null || node.getText() == null) continue;
+
+            String text = node.getText().toString().toLowerCase();
+
+            if (text.contains("shorts") || text.contains("ad")) continue;
+
+            int score = calculateMatchScore(text, query);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestNode = node;
+            }
+        }
+
+        // 🔥 If no good match → fallback
+        if (bestNode == null || bestScore < 3) {
+            Log.e("AI_AUTO", "No match → fallback click");
+            return clickFirstAvailable(root);
+        }
+
+        return clickNode(bestNode);
+    }
+    private boolean clickNode(AccessibilityNodeInfo node) {
+
+        AccessibilityNodeInfo parent = node;
+        int depth = 0;
+
+        while (parent != null && !parent.isClickable() && depth < 10) {
+            parent = parent.getParent();
+            depth++;
+        }
+
+        if (parent != null && parent.isClickable()) {
+
+            boolean clicked = parent.performAction(
+                    AccessibilityNodeInfo.ACTION_CLICK);
+
+            Log.e("AI_AUTO", "Clicked: " + node.getText());
+
+            return clicked;
+        }
+
+        return false;
+    }
+    private boolean clickFirstAvailable(AccessibilityNodeInfo root) {
+
+            List<AccessibilityNodeInfo> titles =
+                    root.findAccessibilityNodeInfosByViewId(
+                            "com.google.android.youtube:id/title");
+
+            if (titles == null) return false;
+
+            for (AccessibilityNodeInfo node : titles) {
+
+                if (node == null || node.getText() == null) continue;
+
+                String text = node.getText().toString().toLowerCase();
+
+                if (text.contains("shorts") || text.contains("ad")) continue;
+
+                return clickNode(node);
+            }
+
+            return false;
+        }
+        private int calculateMatchScore(String title, String query) {
+
+            title = title.toLowerCase();
+            query = query.toLowerCase();
+
+            int score = 0;
+
+            String[] words = query.split(" ");
+
+            for (String word : words) {
+
+                if (word.length() < 2) continue;
+
+                if (title.contains(word)) {
+                    score += 2; // 🔥 stronger weight
+                }
+            }
+
+            // 🔥 BONUS: full phrase match
+            if (title.contains(query)) {
+                score += 5;
+            }
+
+            // 🔥 PRIORITY KEYWORDS
+            if (title.contains("official")) score += 2;
+            if (title.contains("trailer")) score += 2;
+            if (title.contains("song")) score += 2;
+
+            return score;
+        }
+    private boolean clickAnyVideoContainer(AccessibilityNodeInfo root) {
+
+        if (root == null) return false;
+
+        // If node is clickable and looks like video item → click
+        if (root.isClickable()) {
+
+            CharSequence desc = root.getContentDescription();
+
+            if (desc != null) {
+                String d = desc.toString().toLowerCase();
+
+                if (d.contains("video") || d.contains("play")) {
+
+                    boolean clicked = root.performAction(
+                            AccessibilityNodeInfo.ACTION_CLICK);
+
+                    Log.e("AI_AUTO", "Clicked via container: " + d);
+
+                    return clicked;
+                }
+            }
+        }
+
+        // Recursively scan children
+        for (int i = 0; i < root.getChildCount(); i++) {
+
+            AccessibilityNodeInfo child = root.getChild(i);
+
+            if (clickAnyVideoContainer(child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     // ==========================================================
-    // PREDICTION NOTIFICATION
+    // NOTIFICATION
     // ==========================================================
 
     private void sendPredictionNotification(String targetPackage) {
 
-        NotificationManager manager = (NotificationManager) getSystemService(
-                NOTIFICATION_SERVICE);
+        NotificationManager manager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
         String channelId = "prediction_channel";
 
@@ -316,10 +402,7 @@ public class UniversalControlService extends AccessibilityService {
             manager.createNotificationChannel(channel);
         }
 
-        Intent openIntent = new Intent(this,
-                PredictionOpenReceiver.class);
-
-        openIntent.putExtra("from_app", currentPackage);
+        Intent openIntent = new Intent(this, PredictionOpenReceiver.class);
         openIntent.putExtra("to_app", targetPackage);
 
         PendingIntent openPendingIntent = PendingIntent.getBroadcast(
@@ -334,78 +417,163 @@ public class UniversalControlService extends AccessibilityService {
                 .setContentTitle("Smart Suggestion")
                 .setContentText("Open predicted app?")
                 .setAutoCancel(true)
-                .addAction(0,
-                        "Open",
-                        openPendingIntent)
+                .addAction(0, "Open", openPendingIntent)
                 .build();
 
         manager.notify(1001, notification);
-
-        Log.e("HYBRID_ENGINE",
-                "Sending suggestion for: " + targetPackage);
     }
-
-    // ==========================================================
-    // UTILITY APP FILTER
-    // ==========================================================
 
     private boolean isUtilityApp(String pkg) {
 
-        if (pkg == null)
-            return true;
+        if (pkg == null) return true;
 
-        if (pkg.equals(getPackageName()))
-            return true;
+        if (pkg.equals(getPackageName())) return true;
+        if (pkg.equals("com.android.systemui")) return true;
 
-        if (pkg.equals("com.android.systemui"))
-            return true;
-
-        if (pkg.contains("launcher"))
-            return true;
-
-        if (pkg.contains("settings"))
-            return true;
-
-        if (pkg.contains("securitycenter"))
-            return true;
-
-        if (pkg.contains("inputmethod"))
-            return true;
+        if (pkg.contains("launcher")) return true;
+        if (pkg.contains("settings")) return true;
+        if (pkg.contains("inputmethod")) return true;
 
         return false;
     }
-
-    // ==========================================================
-    // RESET PREDICTION FLAG
-    // ==========================================================
-
-    public void resetPredictionFlag() {
-
-        predictionActive = false;
-
-        Log.e(TAG, "Prediction flag reset");
+    public void playYouTubeNow() {
+        retryYouTubeClick(3);
     }
-
+        // ==========================================================
+    // 🔥 REQUIRED METHODS (FIX BUILD ERRORS)
     // ==========================================================
-    // FORCE STOP AUTOMATION
-    // ==========================================================
 
-    public void forceStopAutomation(String appPackage) {
+        // Getter for current active package
+        public String getCurrentPackage() {
+            return currentPackage;
+        }
 
-        if (appPackage == null)
-            return;
+        // Reset prediction flag (used by receivers)
+        public void resetPredictionFlag() {
+            predictionActive = false;
+            Log.e(TAG, "Prediction flag reset");
+        }
 
-        if (!appPackage.equals(currentPackage))
-            return;
+        // Force stop automation for an app
+        public void forceStopAutomation(String packageName) {
 
-        if (automationRunnable != null)
-            automationHandler.removeCallbacks(automationRunnable);
+            if (packageName == null) return;
 
-        automationRunning = false;
+            if (packageName.equals(currentPackage)) {
 
-        automationScrollCount = 0;
+                // Stop any running automation
+                automationRunning = false;
 
-        Log.e("AUTOMATION",
-                "Force stopped for: " + appPackage);
-    }
+                if (automationHandler != null && automationRunnable != null) {
+                    automationHandler.removeCallbacks(automationRunnable);
+                }
+
+                // Go to home screen
+                performGlobalAction(GLOBAL_ACTION_HOME);
+
+                Log.e(TAG, "Force stopped automation for: " + packageName);
+            }
+        }
+        public void setYouTubeQuery(String query) {
+            this.lastQuery = query;
+        }
+        private int extractTimeInSeconds(String command) {
+
+            int seconds = 0;
+
+            command = command.toLowerCase();
+
+            String[] words = command.split(" ");
+
+            for (int i = 0; i < words.length; i++) {
+
+                try {
+
+                    int value = Integer.parseInt(words[i]);
+
+                    // HOURS
+                    if (i + 1 < words.length && words[i + 1].contains("hour")) {
+                        seconds += value * 3600;
+                    }
+
+                    // MINUTES
+                    else if (i + 1 < words.length && words[i + 1].contains("minute")) {
+                        seconds += value * 60;
+                    }
+
+                    // SECONDS
+                    else if (i + 1 < words.length && words[i + 1].contains("second")) {
+                        seconds += value;
+                    }
+
+                } catch (Exception ignored) {}
+            }
+
+            return seconds;
+        }
+        public void openYouTubeWithTime(String videoId, int seconds) {
+
+            String url = "https://www.youtube.com/watch?v=" + videoId;
+
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(android.net.Uri.parse(url));
+
+            // 🔥 FORCE TIMESTAMP
+            intent.putExtra("start_time", seconds);
+
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
+private String extractQuery(String command) {
+
+    command = command.toLowerCase();
+
+    // remove play + time part
+    command = command.replace("play", "");
+
+    // remove time words
+    command = command.replaceAll("\\d+\\s*(hour|hours|minute|minutes|second|seconds)", "");
+
+    return command.trim();
 }
+private void playVideoWithTimestamp(String command) {
+
+    new Thread(() -> {
+
+        try {
+
+            String query = extractQuery(command);
+            int time = extractTimeInSeconds(command);
+
+            Log.e("AI_AUTO", "Query: " + query);
+            Log.e("AI_AUTO", "Time: " + time);
+
+            String videoId = YouTubeApiHelper.searchVideoId(query);
+
+            if (videoId == null) {
+                Log.e("AI_AUTO", "No video found");
+                return;
+            }
+
+            String url = "https://www.youtube.com/watch?v="
+                    + videoId + "&t=" + time + "s";
+
+            android.content.Intent intent =
+                    new android.content.Intent(android.content.Intent.ACTION_VIEW);
+
+            intent.setData(android.net.Uri.parse(url));
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            startActivity(intent);
+
+            Log.e("AI_AUTO", "Playing video with timestamp");
+
+        } catch (Exception e) {
+            Log.e("AI_AUTO", "Error in playback", e);
+        }
+
+    }).start();
+}
+
+}
+

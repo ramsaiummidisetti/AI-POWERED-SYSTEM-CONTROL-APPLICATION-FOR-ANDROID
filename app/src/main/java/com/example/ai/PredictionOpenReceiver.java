@@ -13,6 +13,8 @@ public class PredictionOpenReceiver extends BroadcastReceiver {
         String fromApp = intent.getStringExtra("from_app");
         String toApp = intent.getStringExtra("to_app");
 
+        AIMetricsManager.incrementCorrect(context);
+        
         if (fromApp != null && toApp != null) {
             TransitionTracker.reinforceTransition(
                     context,

@@ -39,6 +39,7 @@ import android.util.Pair;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
+import java.util.List;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -89,8 +90,10 @@ import com.example.ai.ScriptEngine;
 import com.example.ai.SmartSuggestionManager;
 import com.example.ai.SensorAutomationManager;
 import com.example.ai.TransitionTracker;
+import com.example.ai.VoiceCommandProcessor;
 import com.example.ml.HybridPredictionEngine;
 import com.example.dashboard.AIHealthDashboard;
+import com.example.database.DataManager;
 import android.os.StrictMode;
 
 public class MainActivity extends AppCompatActivity implements WakeWordListener, VoiceFeedback {
@@ -118,6 +121,7 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
     private boolean awaitingConfirmation = false;
     private String lastSuggestedPackage = null;
     private SensorAutomationManager sensorAutomationManager;
+    private DataManager dataManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -126,6 +130,7 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         HybridPredictionEngine.initialize(this);
 
         commandOrchestrator = new CommandOrchestrator(this, this);
+        dataManager = new DataManager(this);
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean darkMode = prefs.getBoolean("dark_mode", false);
@@ -144,13 +149,18 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 updateVoiceFeedback("User", text);
             }
 
-            @Override
-            public void onFinalText(String text) {
-                tvListening.setVisibility(View.GONE);
-                updateVoiceFeedback("User", text);
-                handleIntent(text.toLowerCase());
+        @Override
+        public void onFinalText(String text) {
 
-            }
+            tvListening.setVisibility(View.GONE);
+
+            updateVoiceFeedback("User", text);
+
+            String lowerText = text.toLowerCase();
+
+
+            handleIntent(lowerText);
+        }
 
             @Override
             public void onError(String message) {
@@ -705,98 +715,128 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         }
     }
 
-    private void handleIntent(String userCommand) {
 
-        if (userCommand == null || userCommand.trim().isEmpty())
-            return;
+        private void handleIntent(String userCommand) {
 
-        userCommand = userCommand.toLowerCase().trim();
+            if (userCommand == null || userCommand.trim().isEmpty())
+                return;
 
-        Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
+            userCommand = userCommand.toLowerCase().trim();
 
-        if (awaitingConfirmation) {
+            Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
 
-            if (userCommand.equals("yes") || userCommand.equals("okay") || userCommand.contains("create")
-                    || userCommand.contains("do it")) {
+            // ==========================================================
+            // 🔥 1. YOUTUBE INTENT (ADD THIS BLOCK)
+            // ==========================================================
+            if (userCommand.contains("youtube") ||
+                 (userCommand.contains("play") || userCommand.contains("video"))) {
 
-                awaitingConfirmation = false;
+                VoiceCommandProcessor.CommandResult cmd =
+                        VoiceCommandProcessor.process(userCommand);
 
-                if (lastSuggestedPackage != null) {
-                    createPinnedShortcut(lastSuggestedPackage);
-                } else {
-                    speak("No app selected for shortcut");
+                Log.e("VOICE_DEBUG", "YouTube Query: " + cmd.query);
+
+                openYouTubeSmart(cmd.query, cmd.seconds);
+
+                return;
+            }
+
+            // ==========================================================
+            // EXISTING LOGIC (UNCHANGED BELOW)
+            // ==========================================================
+
+            if (awaitingConfirmation) {
+
+                if (userCommand.equals("yes") || userCommand.equals("okay") ||
+                        userCommand.contains("create") || userCommand.contains("do it")) {
+
+                    awaitingConfirmation = false;
+
+                    if (lastSuggestedPackage != null) {
+                        createPinnedShortcut(lastSuggestedPackage);
+                    } else {
+                        speak("No app selected for shortcut");
+                    }
+
+                    return;
                 }
 
-                // Later: real shortcut creation logic
+                if (userCommand.equals("no") || userCommand.contains("cancel")) {
+
+                    awaitingConfirmation = false;
+                    speak("Okay, cancelled");
+                    return;
+                }
+            }
+
+            if (userCommand.contains("emergency")) {
+                commandOrchestrator.handleIntent("emergency", userCommand);
                 return;
             }
 
-            if (userCommand.equals("no") || userCommand.contains("cancel")) {
-
-                awaitingConfirmation = false;
-                speak("Okay, cancelled");
+            if (userCommand.contains("list") && userCommand.contains("app")) {
+                commandOrchestrator.handleIntent("list_installed_apps", userCommand);
                 return;
             }
-        }
-        // Emergency must NEVER depend on ML
-        if (userCommand.contains("emergency")) {
-            commandOrchestrator.handleIntent("emergency", userCommand);
-            return;
-        }
 
-        // Installed apps
-        if (userCommand.contains("list") && userCommand.contains("app")) {
-            commandOrchestrator.handleIntent("list_installed_apps", userCommand);
-            return;
-        }
-
-        // Battery quick rule
-        if (userCommand.contains("battery")) {
-            commandOrchestrator.handleIntent("battery_status", userCommand);
-            return;
-        }
-
-        // Time quick rule
-        if (userCommand.contains("time")) {
-            commandOrchestrator.handleIntent("get_current_time", userCommand);
-            return;
-        }
-        List<String> actions = TaskScriptParser.parseActions(userCommand);
-
-        if (actions != null && actions.size() > 1) {
-            ScriptEngine.execute(commandOrchestrator, actions);
-            return;
-        }
-
-        if (userCommand.startsWith("click") || userCommand.startsWith("tap") || userCommand.startsWith("type")
-                || userCommand.contains("scroll") || userCommand.equals("back") || userCommand.equals("home")
-                || userCommand.contains("notification")) {
-
-            UniversalControlService service = UniversalControlService.getInstance();
-
-            if (service != null) {
-                service.performAction(userCommand);
-            } else {
-                speak("Accessibility service not active");
+            if (userCommand.contains("battery")) {
+                commandOrchestrator.handleIntent("battery_status", userCommand);
+                return;
             }
 
-            return;
+            if (userCommand.contains("time")) {
+                commandOrchestrator.handleIntent("get_current_time", userCommand);
+                return;
+            }
+
+            List<String> actions = TaskScriptParser.parseActions(userCommand);
+
+            if (actions != null && actions.size() > 1) {
+                ScriptEngine.execute(commandOrchestrator, actions);
+                return;
+            }
+
+            // ==========================================================
+            // 🔥 LOW-LEVEL UI COMMANDS ONLY
+            // ==========================================================
+            if (userCommand.startsWith("click") ||
+                userCommand.startsWith("tap") ||
+                userCommand.startsWith("type") ||
+                userCommand.contains("scroll") ||
+                userCommand.equals("back") ||
+                userCommand.equals("home") ||
+                userCommand.contains("notification")) {
+
+                UniversalControlService service = UniversalControlService.getInstance();
+
+                if (service != null) {
+                    service.performAction(userCommand);
+                } else {
+                    speak("Accessibility service not active");
+                }
+
+                return;
+            }
+
+            // ==========================================================
+            // AI INTENT ENGINE (FINAL FALLBACK)
+            // ==========================================================
+            if (aiIntentEngine == null) {
+                speak("AI engine not ready");
+                return;
+            }
+
+            String predictedIntent = aiIntentEngine.getIntent(this, userCommand);
+            dataManager.insertCommand(userCommand, predictedIntent);
+            if (predictedIntent == null) {
+                speak("Sorry, I did not understand");
+                return;
+            }
+
+            commandOrchestrator.handleIntent(predictedIntent, userCommand);
+            dataManager.insertContext("YouTube", predictedIntent);
         }
 
-        if (aiIntentEngine == null) {
-            speak("AI engine not ready");
-            return;
-        }
-
-        String predictedIntent = aiIntentEngine.getIntent(this, userCommand);
-
-        if (predictedIntent == null) {
-            speak("Sorry, I did not understand");
-            return;
-        }
-
-        commandOrchestrator.handleIntent(predictedIntent, userCommand);
-    }
 
     @Override
     public void onWakeWordDetected() {
@@ -889,4 +929,40 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 .setNegativeButton("Not now", null)
                 .show();
     }
+
+    private void openYouTubeSmart(String query, int seconds) {
+
+        try {
+            String search = query.replace(" ", "+");
+            String url = "https://www.youtube.com/results?search_query=" + search;
+
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.setPackage("com.google.android.youtube");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            startActivity(intent);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // 🔥 SMART RETRY INSTEAD OF FIXED DELAY
+       new Handler(Looper.getMainLooper()).postDelayed(() -> {
+
+            UniversalControlService service =
+                    UniversalControlService.getInstance();
+
+            if (service != null) {
+
+                service.setYouTubeQuery(query);   // ✅ correct
+                service.playYouTubeNow();         // 🔥 required
+
+            } else {
+                Log.e("AI_MAIN", "Service not ready");
+            }
+
+        }, 3000);
+    }
+
+
 }
