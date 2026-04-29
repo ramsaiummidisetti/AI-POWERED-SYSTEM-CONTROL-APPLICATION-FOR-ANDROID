@@ -103,6 +103,10 @@
             android:name=".ai.PredictionOpenReceiver"
             android:exported="false" />
              <activity android:name=".com.example.dashboard.AIHealthDashboard"/>
+            <activity
+                    android:name=".UsageDetailActivity"
+                    android:exported="false"/>
+               
         </application>
        
 </manifest>

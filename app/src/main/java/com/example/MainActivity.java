@@ -1,6 +1,7 @@
 package com.example;
 
 import com.example.accessibility.UniversalControlService;
+import com.example.firebase.FirebaseManager;
 import java.util.Map;
 import android.app.usage.UsageStats;
 import android.util.Pair;
@@ -9,7 +10,6 @@ import android.content.pm.ShortcutManager;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.provider.Settings;
-import android.os.Build;
 import com.example.utils.SpeechController;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -23,12 +23,15 @@ import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
+import android.app.NotificationManager;
+import android.app.NotificationChannel;
+import android.app.Notification;
 import android.content.Context;
+import androidx.core.app.NotificationCompat;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.os.BatteryManager;
@@ -39,6 +42,8 @@ import android.util.Pair;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import java.util.List;
 import android.widget.Button;
 import android.widget.EditText;
@@ -122,18 +127,34 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
     private String lastSuggestedPackage = null;
     private SensorAutomationManager sensorAutomationManager;
     private DataManager dataManager;
+    private boolean awaitingAutoAction = false;
+    private String pendingAutoCommand = null;
+    private long lastSuggestionTime = 0;
+    private long lastAutoRunTime = 0;
+    private boolean isAutoExecuting = false;
+    private String lastApp = null;
+    private String lastPredictedApp = null;
+    private long lastAppOpenTime = 0;
+    private long lastUserActionTime = 0;
+    private SharedPreferences aiPrefs;
+    private SharedPreferences appPrefs;
+    private SharedPreferences predictionPrefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        predictionPrefs = getSharedPreferences("prediction_feedback", MODE_PRIVATE);
+        aiPrefs = getSharedPreferences("ai_state", MODE_PRIVATE);
+        lastApp = aiPrefs.getString("lastApp", null);
 
+        Log.e("AI_TRANSITION", "Restored lastApp → " + lastApp);
         HybridPredictionEngine.initialize(this);
 
         commandOrchestrator = new CommandOrchestrator(this, this);
         dataManager = new DataManager(this);
 
-        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        boolean darkMode = prefs.getBoolean("dark_mode", false);
+         appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        boolean darkMode = appPrefs.getBoolean("dark_mode", false);
         // 09/02/26
         speechController = new SpeechController(this, new SpeechController.Callback() {
 
@@ -149,18 +170,17 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 updateVoiceFeedback("User", text);
             }
 
-        @Override
-        public void onFinalText(String text) {
+            @Override
+            public void onFinalText(String text) {
 
-            tvListening.setVisibility(View.GONE);
+                tvListening.setVisibility(View.GONE);
 
-            updateVoiceFeedback("User", text);
+                updateVoiceFeedback("User", text);
 
-            String lowerText = text.toLowerCase();
+                String lowerText = text.toLowerCase();
 
-
-            handleIntent(lowerText);
-        }
+                handleIntent(lowerText);
+            }
 
             @Override
             public void onError(String message) {
@@ -169,7 +189,6 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
 
             }
         });
-
         // 09/02/26 end
         // STEP 1: Enable performance monitoring (Debug only)
         if (BuildConfig.DEBUG) {
@@ -192,7 +211,7 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
         setContentView(R.layout.activity_main);
-        
+
         predictionReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -202,14 +221,11 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 showPredictionPopup(targetPackage);
             }
         };
-
         predictionFilter = new IntentFilter("PREDICTION_EVENT");
         // 🔥 Overlay permission check
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             textToSpeech = new TextToSpeech(this, status -> {
-
                 if (status == TextToSpeech.SUCCESS) {
-
                     int result = textToSpeech.setLanguage(Locale.US);
 
                     textToSpeech.setSpeechRate(1.0f);
@@ -307,13 +323,11 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 startActivity(intent);
             });
             // AI Dashboard Button
-            FloatingActionButton dashboardBtn =
-                    findViewById(R.id.btn_ai_dashboard);
+            FloatingActionButton dashboardBtn = findViewById(R.id.btn_ai_dashboard);
 
             dashboardBtn.setOnClickListener(v -> {
 
-                Intent intent =
-                        new Intent(MainActivity.this,
+                Intent intent = new Intent(MainActivity.this,
                         AIHealthDashboard.class);
 
                 startActivity(intent);
@@ -397,10 +411,12 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
             SmartSuggestions.checkStorageAndSuggest(this);
             SmartSuggestions.checkBatteryAndSuggest(this);
             runUsageAnalysisSafely();
+
         }
         sensorAutomationManager = new SensorAutomationManager(this, commandOrchestrator);
         sensorAutomationManager.start();
-
+        runAutoPrediction();
+      
     }
 
     @Override
@@ -652,14 +668,15 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
     }
 
     private void saveThemePreference(boolean darkMode) {
-        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        prefs.edit().putBoolean("dark_mode", darkMode).apply();
+        appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        appPrefs.edit().putBoolean("dark_mode", darkMode).apply();
     }
 
     private boolean loadThemePreference() {
-        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        return prefs.getBoolean("dark_mode", false);
+         appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        return appPrefs.getBoolean("dark_mode", false);
     }
+
 
     private void updateVoiceFeedback(String sender, String message) {
         if (voiceFeedbackContainer == null)
@@ -715,128 +732,384 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
         }
     }
 
+    private void handleIntent(String userCommand) {
 
-        private void handleIntent(String userCommand) {
+    boolean isFromAuto = isAutoExecuting;
 
-            if (userCommand == null || userCommand.trim().isEmpty())
-                return;
+    //  1. DIRECT PACKAGE HANDLER (notification / auto)
+    if (userCommand != null && userCommand.startsWith("open com.")) {
 
-            userCommand = userCommand.toLowerCase().trim();
+        String packageName = userCommand.replace("open ", "").trim();
 
-            Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
+        Log.e("AI_DEBUG", "Direct package open: " + packageName);
 
-            // ==========================================================
-            // 🔥 1. YOUTUBE INTENT (ADD THIS BLOCK)
-            // ==========================================================
-            if (userCommand.contains("youtube") ||
-                 (userCommand.contains("play") || userCommand.contains("video"))) {
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(packageName);
 
-                VoiceCommandProcessor.CommandResult cmd =
-                        VoiceCommandProcessor.process(userCommand);
-
-                Log.e("VOICE_DEBUG", "YouTube Query: " + cmd.query);
-
-                openYouTubeSmart(cmd.query, cmd.seconds);
-
-                return;
-            }
-
-            // ==========================================================
-            // EXISTING LOGIC (UNCHANGED BELOW)
-            // ==========================================================
-
-            if (awaitingConfirmation) {
-
-                if (userCommand.equals("yes") || userCommand.equals("okay") ||
-                        userCommand.contains("create") || userCommand.contains("do it")) {
-
-                    awaitingConfirmation = false;
-
-                    if (lastSuggestedPackage != null) {
-                        createPinnedShortcut(lastSuggestedPackage);
-                    } else {
-                        speak("No app selected for shortcut");
-                    }
-
-                    return;
-                }
-
-                if (userCommand.equals("no") || userCommand.contains("cancel")) {
-
-                    awaitingConfirmation = false;
-                    speak("Okay, cancelled");
-                    return;
-                }
-            }
-
-            if (userCommand.contains("emergency")) {
-                commandOrchestrator.handleIntent("emergency", userCommand);
-                return;
-            }
-
-            if (userCommand.contains("list") && userCommand.contains("app")) {
-                commandOrchestrator.handleIntent("list_installed_apps", userCommand);
-                return;
-            }
-
-            if (userCommand.contains("battery")) {
-                commandOrchestrator.handleIntent("battery_status", userCommand);
-                return;
-            }
-
-            if (userCommand.contains("time")) {
-                commandOrchestrator.handleIntent("get_current_time", userCommand);
-                return;
-            }
-
-            List<String> actions = TaskScriptParser.parseActions(userCommand);
-
-            if (actions != null && actions.size() > 1) {
-                ScriptEngine.execute(commandOrchestrator, actions);
-                return;
-            }
-
-            // ==========================================================
-            // 🔥 LOW-LEVEL UI COMMANDS ONLY
-            // ==========================================================
-            if (userCommand.startsWith("click") ||
-                userCommand.startsWith("tap") ||
-                userCommand.startsWith("type") ||
-                userCommand.contains("scroll") ||
-                userCommand.equals("back") ||
-                userCommand.equals("home") ||
-                userCommand.contains("notification")) {
-
-                UniversalControlService service = UniversalControlService.getInstance();
-
-                if (service != null) {
-                    service.performAction(userCommand);
-                } else {
-                    speak("Accessibility service not active");
-                }
-
-                return;
-            }
-
-            // ==========================================================
-            // AI INTENT ENGINE (FINAL FALLBACK)
-            // ==========================================================
-            if (aiIntentEngine == null) {
-                speak("AI engine not ready");
-                return;
-            }
-
-            String predictedIntent = aiIntentEngine.getIntent(this, userCommand);
-            dataManager.insertCommand(userCommand, predictedIntent);
-            if (predictedIntent == null) {
-                speak("Sorry, I did not understand");
-                return;
-            }
-
-            commandOrchestrator.handleIntent(predictedIntent, userCommand);
-            dataManager.insertContext("YouTube", predictedIntent);
+        if (launchIntent != null) {
+            startActivity(launchIntent);
+        } else {
+            Log.e("AI_DEBUG", "Launch intent NULL");
+            speak("App not found");
         }
 
+        return;
+    }
+
+    Log.e("AI_FLOW", "handleIntent called with: " + userCommand + " | auto: " + isAutoExecuting);
+
+    //  2. BASIC VALIDATION
+    if (userCommand == null || userCommand.trim().isEmpty())
+        return;
+
+    userCommand = userCommand.toLowerCase().trim();
+
+    //  3. GENERAL COMMANDS (NO PACKAGE NEEDED)
+    if (userCommand.contains("battery")) {
+        commandOrchestrator.handleIntent("battery_status", userCommand);
+        return;
+    }
+
+    if (userCommand.contains("time")) {
+        commandOrchestrator.handleIntent("get_current_time", userCommand);
+        return;
+    }
+
+    if (userCommand.contains("date")) {
+        commandOrchestrator.handleIntent("get_date", userCommand);
+        return;
+    }
+
+    if (userCommand.contains("network")) {
+        commandOrchestrator.handleIntent("network_status", userCommand);
+        return;
+    }
+
+    Log.e("VOICE_DEBUG", "Voice command received: " + userCommand);
+
+    // 4. AUTO RESPONSE HANDLER (YES/NO)
+    if (awaitingAutoAction && !isAutoExecuting) {
+
+        if (userCommand.contains("yes") || userCommand.contains("ok")) {
+
+            awaitingAutoAction = false;
+
+            if (pendingAutoCommand != null) {
+
+                isAutoExecuting = true;
+                handleIntent(pendingAutoCommand);
+                isAutoExecuting = false;
+
+                pendingAutoCommand = null;
+            } else {
+                speak("No action to perform");
+            }
+            return;
+        }
+
+        if (userCommand.contains("no")) {
+            awaitingAutoAction = false;
+            pendingAutoCommand = null;
+            speak("Okay, cancelled");
+            return;
+        }
+    }
+
+    //  5. INIT
+    FirebaseManager firebaseManager = new FirebaseManager();
+
+    String deviceId = android.provider.Settings.Secure.getString(
+            getContentResolver(),
+            android.provider.Settings.Secure.ANDROID_ID);
+
+    if (aiIntentEngine == null) {
+        speak("AI not ready");
+        return;
+    }
+
+    String predictedIntent = aiIntentEngine.getIntent(this, userCommand);
+
+    if (predictedIntent == null) {
+        speak("Sorry, I did not understand");
+        return;
+    }
+
+    //  COMMON VARIABLES
+    String query = extractQuery(userCommand);
+    String timeOfDay = getTimeOfDay();
+
+    //  PACKAGE RESOLUTION (ONLY ONCE)
+    String packageName = findAppPackage(userCommand);
+    Log.e("AI_DEBUG", "Resolved package: " + packageName);
+
+    // STORE DATA
+    dataManager.insertCommand(userCommand, predictedIntent, query, timeOfDay);
+    Log.e("FIREBASE_CHECK", 
+    "sendCommand → " + userCommand + 
+    " | app: " + packageName);
+    if (packageName == null) {
+            Log.e("FIREBASE_SKIP", "Skipping command (no app)");
+        } else {
+            firebaseManager.sendCommand(
+                userCommand,
+                predictedIntent,
+                query,
+                deviceId,
+                packageName,
+                timeOfDay
+            );
+        }
+    // 6. YOUTUBE HANDLING
+    if (userCommand.contains("youtube") ||
+            (userCommand.contains("play") && userCommand.contains("youtube"))) {
+
+        if (isAutoExecuting) {
+            Log.e("AI_AUTO", "Already running — skip ONCE");
+            isAutoExecuting = false;  // reset
+            return;
+        }
+
+        VoiceCommandProcessor.CommandResult cmd =
+                VoiceCommandProcessor.process(userCommand);
+
+        openYouTubeSmart(cmd.query, cmd.seconds);
+
+        String youtubePackage = "com.google.android.youtube";
+
+        if (awaitingAutoAction) {
+            return;
+        }
+         if (!isAutoExecuting && !awaitingAutoAction) {
+            runBackgroundPrediction();
+        }
+         youtubePackage = "com.google.android.youtube";
+
+        if (lastApp == null) {
+            lastApp = youtubePackage;
+            Log.e("AI_TRANSITION", "Initialized lastApp → " + lastApp);
+        }
+        else if (!lastApp.equals(youtubePackage)) {
+
+            Log.e("FIREBASE_CHECK",
+                    "storeTransition → " + lastApp + " → " + youtubePackage);
+
+            firebaseManager.storeTransition(lastApp, youtubePackage);
+            dataManager.insertTransition(lastApp, youtubePackage);
+
+            Log.e("AI_TRANSITION", lastApp + " → " + youtubePackage);
+
+            lastApp = youtubePackage;
+        }
+
+        // SAVE
+      aiPrefs    = getSharedPreferences("ai_state", MODE_PRIVATE);
+        aiPrefs.edit().putString("lastApp", lastApp).apply();
+        return;
+    }
+
+    //  7. ACCESSIBILITY COMMANDS
+    if (userCommand.startsWith("click") ||
+            userCommand.startsWith("tap") ||
+            userCommand.contains("scroll") ||
+            userCommand.equals("back") ||
+            userCommand.equals("home")) {
+
+        UniversalControlService service = UniversalControlService.getInstance();
+
+        if (service != null) {
+            service.performAction(userCommand);
+        } else {
+            speak("Accessibility not active");
+        }
+        return;
+    }
+
+    //  8. APP COMMAND VALIDATION
+    if ((userCommand.contains("open") || userCommand.contains("play")) && packageName == null) {
+        speak("App not found");
+        return;
+    }
+
+    //  9. EXECUTE AI INTENT
+    if (!isAutoExecuting) {
+
+        commandOrchestrator.handleIntent(predictedIntent, userCommand);
+        lastUserActionTime = System.currentTimeMillis();
+
+        //  OPEN APP
+        if (userCommand.contains("open") || userCommand.contains("play")) {
+
+            Intent launchIntent = getPackageManager().getLaunchIntentForPackage(packageName);
+
+            if (launchIntent != null) {
+                startActivity(launchIntent);
+            } else {
+                speak("Unable to open app");
+            }
+        }
+        // TRANSITION TRACKING
+
+        if (packageName != null &&
+                !packageName.isEmpty() &&
+                (userCommand.contains("open") || userCommand.contains("play"))) {
+
+            // ✅ FIRST TIME → JUST INITIALIZE
+            if (lastApp == null) {
+                lastApp = packageName;
+                Log.e("AI_TRANSITION", "Initialized lastApp → " + lastApp);
+            }
+            // ✅ NORMAL TRANSITION
+            else if (!lastApp.equals(packageName)) {
+
+                Log.e("FIREBASE_CHECK",
+                        "storeTransition → " + lastApp + " → " + packageName);
+
+                firebaseManager.storeTransition(lastApp, packageName);
+                
+                
+                dataManager.insertTransition(lastApp, packageName);
+                Log.e("AI_TRANSITION", lastApp + " → " + packageName);
+
+                lastApp = packageName;
+            }
+            lastApp = aiPrefs.getString("lastApp", null);
+
+            aiPrefs.edit()
+                .putString("lastApp", lastApp)
+                .apply();  
+        }
+        //  PREVENT IMMEDIATE RE-TRIGGER
+        if (System.currentTimeMillis() - lastUserActionTime < 2000) {
+            Log.e("AI_AUTO", "Recent user action — skip prediction");
+            return;
+        }
+        
+    }
+
+    // 10. AI PREDICTION LOGIC
+    // 🔥 STEP 10 — CLEAN AI PREDICTION
+
+        Log.e("AI_DEBUG", "STEP 10 RUNNING");
+
+        // 🚫 HARD BLOCK: during automation
+        if (isAutoExecuting) {
+            Log.e("AI_AUTO", "Blocked: automation running");
+            return;
+        }
+
+        // 🚫 HARD BLOCK: waiting user response
+        if (awaitingAutoAction) {
+            Log.e("AI_AUTO", "Blocked: awaiting user response");
+            return;
+        }
+
+        // 🚫 USER ACTION COOLING (short)
+        if (System.currentTimeMillis() - lastUserActionTime < 1500) {
+            Log.e("AI_AUTO", "Blocked: recent user action");
+            return;
+        }
+
+        // 🔹 GET TRANSITION
+        String transitionApp = null;
+        int transitionScore = 0;
+
+        if (lastApp != null) {
+            transitionApp = dataManager.getNextAppFromTransitions(lastApp);
+            if (transitionApp != null) {
+                transitionScore =
+                    dataManager.getTransitionFrequency(lastApp, transitionApp);
+            }
+        }
+
+        // 🔹 GET FREQUENCY
+        String freqApp =
+            dataManager.getMostUsedAppForIntent(timeOfDay, predictedIntent);
+
+        int freqScore = 0;
+
+        if (freqApp != null) {
+            freqScore =
+                dataManager.getCommandFrequency(timeOfDay, freqApp);
+        }
+
+        // 🔹 DECISION
+        String chosenAppName;
+
+        if (transitionScore > freqScore) {
+            chosenAppName = transitionApp;
+            Log.e("AI_DECISION", "Using TRANSITION");
+        } else {
+            chosenAppName = freqApp;
+            Log.e("AI_DECISION", "Using FREQUENCY");
+        }
+
+        // 🚫 NULL CHECK
+        if (chosenAppName == null) {
+            Log.e("AI_AUTO", "No app predicted");
+            return;
+        }
+
+        // 🔹 PACKAGE RESOLVE
+        String suggestedPackage =
+            findAppPackage("open " + chosenAppName);
+
+        if (suggestedPackage == null) {
+            Log.e("AI_AUTO", "Package resolve failed");
+            return;
+        }
+
+        // 🚫 SAME APP CHECK
+        if (suggestedPackage.equals(lastApp)) {
+            Log.e("AI_AUTO", "Same as current app — skip");
+            return;
+        }
+
+        // 🔹 SCORE FILTER
+        int finalScore = Math.max(transitionScore, freqScore);
+
+        if (finalScore < 2) {
+            Log.e("AI_AUTO", "Low confidence — skip");
+            return;
+        }
+
+        // 🔹 COOLDOWN (REDUCED)
+        long now = System.currentTimeMillis();
+
+        if (now - lastSuggestionTime < 15000) {
+            Log.e("AI_AUTO", "Cooldown active — skip");
+            return;
+        }
+
+        // 🔹 DUPLICATE CHECK
+        if (suggestedPackage.equals(lastSuggestedPackage)) {
+            Log.e("AI_AUTO", "Duplicate — skip");
+            return;
+        }
+
+        // 🔹 STORE STATE
+        lastSuggestionTime = now;
+        lastSuggestedPackage = suggestedPackage;
+
+        String fullCommand = "open " + suggestedPackage;
+
+        pendingAutoCommand = fullCommand;
+        awaitingAutoAction = true;
+
+        Log.e("AI_AUTO", "Stored suggestion → " + fullCommand);
+    }
+    private String extractQuery(String command) {
+
+        command = command.toLowerCase();
+
+        // remove common keywords
+        command = command.replace("play", "")
+                .replace("open", "")
+                .replace("search", "");
+
+        // remove time parts
+        command = command.replaceAll("\\d+\\s*(hour|hours|minute|minutes|second|seconds)", "");
+
+        return command.trim();
+    }
 
     @Override
     public void onWakeWordDetected() {
@@ -930,39 +1203,340 @@ public class MainActivity extends AppCompatActivity implements WakeWordListener,
                 .show();
     }
 
-    private void openYouTubeSmart(String query, int seconds) {
+private void openYouTubeSmart(String query, int seconds) {
 
-        try {
-            String search = query.replace(" ", "+");
-            String url = "https://www.youtube.com/results?search_query=" + search;
+    try {
+        String search = query.replace(" ", "+");
+        String url = "https://www.youtube.com/results?search_query=" + search;
 
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            intent.setPackage("com.google.android.youtube");
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        intent.setPackage("com.google.android.youtube");
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-            startActivity(intent);
+        startActivity(intent);
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Log.e("AI_AUTO", "YouTube search opened");
 
-        // 🔥 SMART RETRY INSTEAD OF FIXED DELAY
-       new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        isAutoExecuting = true;
 
-            UniversalControlService service =
-                    UniversalControlService.getInstance();
-
-            if (service != null) {
-
-                service.setYouTubeQuery(query);   // ✅ correct
-                service.playYouTubeNow();         // 🔥 required
-
-            } else {
-                Log.e("AI_MAIN", "Service not ready");
-            }
-
-        }, 3000);
+    } catch (Exception e) {
+        e.printStackTrace();
+        return;
     }
 
+    new Handler(Looper.getMainLooper()).postDelayed(() -> {
 
+        UniversalControlService service =
+                UniversalControlService.getInstance();
+
+        if (service == null) {
+            Log.e("AI_AUTO", "Service NULL ❌");
+            isAutoExecuting = false;
+            return;
+        }
+
+        service.setYouTubeQuery(query);
+
+        int maxRetries = 3;
+
+        runYouTubeAutomationRetry(service, 1, maxRetries);
+
+    }, 5500);
+}
+    private String getTimeOfDay() {
+
+        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        if (hour >= 5 && hour < 12)
+            return "morning";
+        else if (hour < 17)
+            return "afternoon";
+        else if (hour < 21)
+            return "evening";
+        else
+            return "night";
+    }
+
+    private String getAppName(String packageName) {
+
+        try {
+            android.content.pm.PackageManager pm = getPackageManager();
+            android.content.pm.ApplicationInfo appInfo = pm.getApplicationInfo(packageName, 0);
+            return pm.getApplicationLabel(appInfo).toString();
+        } catch (Exception e) {
+            return "this app";
+        }
+    }
+
+    private void runAutoPrediction() {
+
+        String timeOfDay = getTimeOfDay();
+
+        String suggestedCommand = dataManager.getMostUsedCommandByTime(timeOfDay);
+
+        if (suggestedCommand == null)
+            return;
+
+        int frequency = dataManager.getCommandFrequency(timeOfDay, suggestedCommand);
+
+        Log.e("AI_AUTO", "Background prediction: " + suggestedCommand + " freq: " + frequency);
+
+        long now = System.currentTimeMillis();
+
+        // 🔥 Prevent spam (1 min cooldown)
+        if (now - lastAutoRunTime < 60000) {
+            Log.e("AI_AUTO", "Cooldown active — skipped");
+            return;
+        }
+
+        // 🔥 Only act when confident
+        if (frequency >= 3) {
+
+            lastAutoRunTime = now;
+
+            String fullCommand;
+
+            // 🔥 Smarter command handling
+            if (suggestedCommand.contains("youtube")) {
+                fullCommand = "open youtube";
+            } else {
+                fullCommand = "open " + suggestedCommand;
+            }
+            if (awaitingAutoAction) {
+                Log.e("AI_NOTIFY", "Already waiting — skip new notification");
+                return;
+            }
+
+            // 🔥 STORE ONLY (NO AUTO EXECUTION)
+            pendingAutoCommand = fullCommand;
+            awaitingAutoAction = true;
+
+            Log.e("AI_AUTO", "Stored pending command: " + fullCommand);
+
+            // 🔥 OPTIONAL: trigger notification here (if not already)
+            showPredictionNotification(suggestedCommand);
+        }
+    }
+
+    private String findAppPackage(String userCommand) {
+
+                String query = userCommand.toLowerCase()
+                .replace("open", "")
+                .replace("play", "")
+                .trim();
+
+        // 🔥 NORMALIZATION (VERY IMPORTANT)
+        query = query.replace("fb", "facebook")
+                    .replace("insta", "instagram")
+                    .replace("ig", "instagram")
+                    .replace("yt", "youtube")
+                    .replace("browser", "chrome")
+                    .replace("music", "spotify"); // optional
+
+        PackageManager pm = getPackageManager();
+        List<ApplicationInfo> apps = pm.getInstalledApplications(0);
+
+        String bestMatch = null;
+        int bestScore = 0;
+        for (ApplicationInfo app : apps) {
+
+            String appName = pm.getApplicationLabel(app).toString().toLowerCase();
+
+            // 🔥 exact match
+            if (appName.equals(query)) {
+                return app.packageName;
+            }
+            // 🔥 starts with (very strong)
+            if (appName.startsWith(query)) {
+                return app.packageName;
+            }
+             int score = 0;
+
+            if (appName.contains(query)) score += 2;
+            if (query.contains(appName)) score += 1;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = app.packageName;
+            }
+        }
+
+
+
+        return bestMatch;
+    }
+
+    private void runBackgroundPrediction() {
+
+        long now = System.currentTimeMillis();
+
+        // 🔥 HARD STOP
+        if (isAutoExecuting || awaitingAutoAction) {
+            Log.e("AI_BG", "Blocked — auto or waiting state");
+            return;
+        }
+      
+        // 🔥 LOOP BLOCKER (CRITICAL)
+        if (now - lastAppOpenTime < 5000) {
+            Log.e("AI_BG", "Skipped — just returned from app");
+            return;
+        }
+        if (isAutoExecuting) {
+            Log.e("AI_AUTO", "Skipping prediction during automation");
+            return;
+        }
+        if (lastApp == null)
+            return;
+
+        String timeOfDay = getTimeOfDay();
+
+        // 🔥 STEP 3 LOGIC REUSE
+        String transitionApp = dataManager.getNextAppFromTransitions(lastApp);
+        int transitionScore = 0;
+
+        if (transitionApp != null) {
+            transitionScore = dataManager.getTransitionFrequency(lastApp, transitionApp);
+        }
+
+        String freqApp = dataManager.getMostUsedAppForIntent(timeOfDay, "open");
+        int freqScore = 0;
+
+        if (freqApp != null) {
+            freqScore = dataManager.getCommandFrequency(timeOfDay, freqApp);
+        }
+
+       
+
+        String chosenAppName;
+
+        if (transitionScore > freqScore) {
+            chosenAppName = transitionApp;
+        } else {
+            chosenAppName = freqApp;
+        }
+
+        if (chosenAppName == null)
+            return;
+
+        // 🔥 convert here
+        String suggestedPackage = findAppPackage("open " + chosenAppName);
+
+        if (suggestedPackage == null)
+            return;
+        if (suggestedPackage != null && suggestedPackage.equals(lastApp)) {
+            Log.e("AI_BG", "Same app predicted — skipping");
+            return;
+        }
+
+        if (suggestedPackage == null)
+            return;
+
+        int finalScore = Math.max(transitionScore, freqScore);
+
+        if (finalScore < 2)
+            return;
+
+        Log.e("AI_BG", "Predicted: " + suggestedPackage);
+        showPredictionNotification(suggestedPackage);
+        // 🔥 SPEAK OR SHOW
+        // speak("You may want to open " + suggestedPackage);
+    }
+    
+    private void showPredictionNotification(String targetPackage) {
+
+    String channelId = "AI_PREDICTION_CHANNEL";
+    // 🔥 Ensure always package
+    if (!targetPackage.startsWith("com.")) {
+        String fixed = findAppPackage("open " + targetPackage);
+        if (fixed != null) {
+            targetPackage = fixed;
+        }
+    }
+
+    Log.e("AI_NOTIFY", "FINAL PACKAGE: " + targetPackage);
+    NotificationManager manager =
+            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "AI Predictions",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        manager.createNotificationChannel(channel);
+    }
+
+    if (lastApp == null) lastApp = "unknown";
+
+    String transitionKey = lastApp + "_" + targetPackage;
+    // 🔥 OPEN ACTION → Receiver
+    Intent openIntent = new Intent(this, com.example.ai.PredictionOpenReceiver.class);
+    openIntent.putExtra("to_app", targetPackage);
+
+    PendingIntent openPendingIntent = PendingIntent.getBroadcast(
+            this,
+            targetPackage.hashCode(),
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+    );
+
+    // 🔥 DISMISS ACTION → Receiver
+    Intent dismissIntent = new Intent(this, com.example.ai.PredictionDismissReceiver.class);
+    dismissIntent.putExtra("transition_key", transitionKey);
+
+    PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(
+            this,
+            targetPackage.hashCode() + 1,
+            dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+    );
+
+    String appName = getAppName(targetPackage);
+
+    Notification notification = new NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("AI Suggestion")
+            .setContentText("You may want to open " + appName)
+            .setAutoCancel(true)
+            .addAction(0, "Open", openPendingIntent)
+            .addAction(0, "Dismiss", dismissPendingIntent)
+            .build();
+
+    manager.notify(1001, notification);
+
+    Log.e("AI_NOTIFY", "Notification created for: " + appName);
+
+    }
+    private boolean isSuppressed(String key) {
+        long suppressUntil =
+            predictionPrefs.getLong("suppress_" + key, 0);
+        return System.currentTimeMillis() < suppressUntil;
+    }
+    @Override   
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+        Log.e("AI_FLOW", "onNewIntent triggered — activity reused");
+    }
+    private void runYouTubeAutomationRetry(
+        UniversalControlService service,
+        int attempt,
+        int maxRetries
+) {
+
+    if (!isAutoExecuting) return;
+
+    Log.e("AI_AUTO", "Click attempt: " + attempt);
+
+    service.startYouTubeAutomation();
+
+    if (attempt >= maxRetries) {
+        Log.e("AI_AUTO", "Max retries reached → stopping");
+        isAutoExecuting = false;
+        return;
+    }
+
+    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        runYouTubeAutomationRetry(service, attempt + 1, maxRetries);
+    }, 2000);
+}
 }

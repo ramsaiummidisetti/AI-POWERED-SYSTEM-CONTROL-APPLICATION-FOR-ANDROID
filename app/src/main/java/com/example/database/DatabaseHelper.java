@@ -1,4 +1,4 @@
-tpackage com.example.database;
+package com.example.database;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
@@ -18,10 +18,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         // Store user commands
         db.execSQL("CREATE TABLE user_commands (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "command TEXT," +
-                "intent TEXT," +
-                "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)");
+        "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "command TEXT," +
+        "intent TEXT," +
+        "query TEXT," +
+         "time_of_day TEXT," + 
+        "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"); 
 
         // Store context data
         db.execSQL("CREATE TABLE context_logs (" +
@@ -30,6 +32,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "time_of_day TEXT," +
                 "action TEXT," +
                 "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)");
+
+        db.execSQL("CREATE TABLE transitions (" +
+        "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "from_app TEXT," +
+        "to_app TEXT," +
+        "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)");
     }
 
     @Override

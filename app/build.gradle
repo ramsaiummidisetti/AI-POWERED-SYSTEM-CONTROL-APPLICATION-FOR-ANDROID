@@ -1,6 +1,8 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
+
 
     android {
          namespace = "com.example"
@@ -30,6 +32,10 @@ plugins {
         checkReleaseBuilds false
         abortOnError false
     }
+    compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+    }
 }
 
 dependencies {
@@ -43,6 +49,7 @@ dependencies {
     implementation 'org.tensorflow:tensorflow-lite:2.16.1'
     implementation 'org.tensorflow:tensorflow-lite-select-tf-ops:2.16.1'
     implementation 'com.google.mlkit:text-recognition:16.0.0'
-    implementation 'org.tensorflow:tensorflow-lite:2.14.0'
     implementation 'com.squareup.okhttp3:okhttp:4.9.3'
+    implementation 'com.google.firebase:firebase-firestore:24.7.1'
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
 }
